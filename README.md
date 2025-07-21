@@ -308,7 +308,7 @@ Don't forget to give the project a star! Thanks again!
     <td align="center" width="33.33%">
       <img src="src/assets/img/Francheska.png" alt="Franchezca Natividad Z. Banayad" style="border-radius: 50%; width: 120px; height: 120px;"><br>
       <strong>Franchezca Natividad Z. Banayad</strong><br>
-      <a href="https://www.linkedin.com/in/franchezca-banayad/">
+      <a href="https://www.linkedin.com/in/franchezca-natividad-banayad-25b278261">
         <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn">
       </a>
     </td>
