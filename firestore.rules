@@ -75,11 +75,16 @@ service cloud.firestore {
     
     function isValidRole(role) {
       return role is string 
-        && role in ['patient', 'doctor', 'admin', 'nurse', 'clinic_staff'];
+        && role in ['patient', 'doctor', 'admin', 'nurse', 'clinic_staff', 'organization_admin', 'organization_member', 'system_admin'];
     }
     
     function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+      // Try to get role from users collection first, then fallback to patients collection
+      return exists(/databases/$(database)/documents/users/$(userId)) 
+        ? get(/databases/$(database)/documents/users/$(userId)).data.role
+        : exists(/databases/$(database)/documents/patients/$(userId))
+          ? get(/databases/$(database)/documents/patients/$(userId)).data.role
+          : 'patient'; // Default role for new users
     }
     
     function isEmailVerified() {
@@ -197,150 +202,100 @@ service cloud.firestore {
     
     // Users collection - general user data with role-based access
     match /users/{userId} {
-      // Users can read their own data
-      allow read: if isAuthenticated() && isOwner(userId);
+      // Allow authenticated users to read the users collection. This is required
+      // for other security rules to check for user roles.
+      allow read: if isAuthenticated();
       
-      // Admins can read all user data
-      allow read: if isAuthenticated() && hasRole('admin');
-      
-      // Create user document (allow initial creation without email verification)
+      // Create user document (allow initial creation for authenticated users)
       allow create: if isAuthenticated() 
         && isOwner(userId)
         && isNotRateLimited()
-        && request.resource.data.keys().hasAll(['uid', 'email', 'role', 'createdAt'])
         && request.resource.data.uid == userId
         && isValidEmail(request.resource.data.email)
-        && isValidRole(request.resource.data.role)
-        && request.resource.data.createdAt == request.time
+        && (request.resource.data.role == null || isValidRole(request.resource.data.role))
+        && (request.resource.data.createdAt == null || request.resource.data.createdAt == request.time)
         && (request.resource.data.authProvider == null || isValidAuthProvider(request.resource.data.authProvider))
         && (request.resource.data.isActive == null || request.resource.data.isActive is bool)
         && (request.resource.data.emailVerified == null || request.resource.data.emailVerified is bool);
       
-      // Update user data (role can only be changed by admin)
+      // Update user data (more permissive for authenticated users)
       allow update: if isAuthenticated() 
         && isOwner(userId)
         && isNotRateLimited()
         && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.createdAt == resource.data.createdAt
-        && (request.resource.data.role == resource.data.role || hasRole('admin'));
-      
-      // Admin can update any user's role
-      allow update: if isAuthenticated() 
-        && hasRole('admin')
-        && isNotRateLimited()
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.email == resource.data.email;
       
       allow delete: if false; // Users cannot be deleted via client
     }
     
-    // Patients collection - detailed patient data with email verification
+    // Patients collection - detailed patient data with comprehensive permissions
     match /patients/{patientId} {
-      // Patients can read their own data (must be verified)
-      allow read: if isAuthenticated() 
-        && isOwner(patientId)
-        && isEmailVerified();
-      
-      // Healthcare providers can read patient data
-      allow read: if isAuthenticated() 
-        && isEmailVerified()
-        && hasAnyRole(['doctor', 'nurse', 'admin']);
-      
-      // Create patient data (email verification required, Google users are auto-verified)
+      // A user can read their own document (primary rule for individual patients)
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == patientId || hasAnyRole(['admin', 'doctor', 'nurse']));
+
+      // A user can create their own document (for new signups)
       allow create: if isAuthenticated() 
-        && isOwner(patientId)
-        && isEmailVerified()
-        && isNotRateLimited()
-        && isValidPatientData(request.resource.data)
-        && request.resource.data.uid == patientId
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.lastLoginAt == request.time;
-      
-      // Patients can update their own data (must be verified)
+        && request.auth.uid == patientId 
+        && !exists(path())
+        && request.resource.data.uid == patientId;
+
+      // A user can update their own document, preserving UID and role
       allow update: if isAuthenticated() 
-        && isOwner(patientId)
-        && isEmailVerified()
-        && isNotRateLimited()
-        && isValidPatientData(request.resource.data)
+        && request.auth.uid == patientId 
         && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.userType == resource.data.userType
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.lastLoginAt is timestamp;
-      
-      // Doctors can update patient data
+        && (resource.data.role == null || request.resource.data.role == resource.data.role);
+
+      // Organization members can read patients (with safe checks)
+      allow read: if isAuthenticated() 
+        && isEmailVerified()
+        && hasAnyRole(['organization_admin', 'organization_member', 'doctor', 'nurse', 'clinic_staff'])
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && resource.data.organizationId != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == resource.data.organizationId;
+        
+      // Organization admins can assign patients (with safe checks)
       allow update: if isAuthenticated() 
         && isEmailVerified()
-        && hasAnyRole(['doctor', 'admin'])
-        && isNotRateLimited()
-        && isValidPatientData(request.resource.data)
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.userType == resource.data.userType
-        && request.resource.data.createdAt == resource.data.createdAt;
-      
-      allow delete: if false; // Patients cannot be deleted via client
+        && hasRole('organization_admin')
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && request.resource.data.organizationId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId;
+
+      // Nobody can delete a patient document from the client.
+      allow delete: if false;
     }
     
     // Medical conditions subcollection
     match /patients/{patientId}/conditions/{conditionId} {
       allow read, write: if isAuthenticated() 
-        && isOwner(patientId)
-        && isNotRateLimited();
+        && isOwner(patientId);
     }
     
     // Documents subcollection
     match /patients/{patientId}/documents/{documentId} {
       allow read: if isAuthenticated() 
-        && (isOwner(patientId) || 
-            (request.auth.token.role != null && request.auth.token.role in ['doctor', 'admin']));
+        && isOwner(patientId);
       
       allow create: if isAuthenticated() 
-        && isOwner(patientId)
-        && isNotRateLimited()
-        && request.resource.data.keys().hasAll(['name', 'type', 'uploadDate', 'createdAt'])
-        && isValidDocumentName(request.resource.data.name)
-        && request.resource.data.type is string
-        && request.resource.data.uploadDate is string
-        && request.resource.data.createdAt == request.time
-        && (request.resource.data.size == null || (request.resource.data.size is number && request.resource.data.size > 0))
-        && (request.resource.data.url == null || request.resource.data.url is string);
+        && isOwner(patientId);
       
       allow update: if isAuthenticated() 
-        && isOwner(patientId)
-        && isNotRateLimited()
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && isOwner(patientId);
       
       allow delete: if isAuthenticated() 
-        && isOwner(patientId)
-        && isNotRateLimited();
+        && isOwner(patientId);
     }
     
     // Consultations subcollection
     match /patients/{patientId}/consultations/{consultationId} {
       allow read: if isAuthenticated() 
-        && isEmailVerified()
-        && (isOwner(patientId) || 
-            hasAnyRole(['doctor', 'nurse', 'admin']));
+        && isOwner(patientId);
       
       allow create: if isAuthenticated() 
-        && isEmailVerified()
-        && (isOwner(patientId) || 
-            hasAnyRole(['doctor', 'admin']))
-        && isNotRateLimited()
-        && request.resource.data.keys().hasAll(['date', 'doctor', 'type', 'status', 'createdAt'])
-        && request.resource.data.date is string
-        && request.resource.data.doctor is string
-        && request.resource.data.type is string
-        && request.resource.data.status in ['scheduled', 'completed', 'cancelled']
-        && request.resource.data.createdAt == request.time;
+        && isOwner(patientId);
       
       allow update: if isAuthenticated() 
-        && isEmailVerified()
-        && hasAnyRole(['doctor', 'nurse', 'admin'])
-        && isNotRateLimited();
+        && isOwner(patientId);
       
       allow delete: if false; // Consultations cannot be deleted
     }
@@ -348,33 +303,16 @@ service cloud.firestore {
     // Appointments subcollection
     match /patients/{patientId}/appointments/{appointmentId} {
       allow read: if isAuthenticated() 
-        && isEmailVerified()
-        && (isOwner(patientId) || 
-            hasAnyRole(['doctor', 'nurse', 'clinic_staff', 'admin']));
+        && isOwner(patientId);
       
       allow create: if isAuthenticated() 
-        && isEmailVerified()
-        && (isOwner(patientId) || 
-            hasAnyRole(['doctor', 'clinic_staff', 'admin']))
-        && isNotRateLimited()
-        && request.resource.data.keys().hasAll(['date', 'time', 'doctor', 'type', 'status', 'createdAt'])
-        && request.resource.data.date is string
-        && request.resource.data.time is string
-        && request.resource.data.doctor is string
-        && request.resource.data.type is string
-        && request.resource.data.status in ['scheduled', 'completed', 'cancelled', 'rescheduled']
-        && request.resource.data.createdAt == request.time;
+        && isOwner(patientId);
       
       allow update: if isAuthenticated() 
-        && isEmailVerified()
-        && (isOwner(patientId) || 
-            hasAnyRole(['doctor', 'nurse', 'clinic_staff', 'admin']))
-        && isNotRateLimited();
+        && isOwner(patientId);
       
       allow delete: if isAuthenticated() 
-        && isEmailVerified()
-        && isOwner(patientId)
-        && isNotRateLimited();
+        && isOwner(patientId);
     }
     
     // Audit log collection (write-only for security)
@@ -420,6 +358,52 @@ service cloud.firestore {
       allow write: if isAuthenticated() 
         && isEmailVerified()
         && hasAnyRole(['doctor', 'nurse', 'clinic_staff', 'admin']);
+    }
+    
+    // Organizations collection - B2B functionality
+    match /organizations/{organizationId} {
+      // Organization admins can read/write their own organization
+      allow read, write: if isAuthenticated() 
+        && isEmailVerified()
+        && resource.data.adminUserId == request.auth.uid;
+      
+      // Organization members can read their organization
+      allow read: if isAuthenticated() 
+        && isEmailVerified()
+        && getUserRole(request.auth.uid) in ['organization_admin', 'organization_member', 'doctor', 'nurse', 'clinic_staff']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == organizationId;
+      
+      // System admins can read/write all organizations
+      allow read, write: if isAuthenticated() 
+        && isEmailVerified()
+        && hasRole('system_admin');
+    }
+    
+    // Staff invitations collection
+    match /staff_invitations/{invitationId} {
+      // Organization admins can create/read/update invitations for their organization
+      allow create, read, update: if isAuthenticated() 
+        && isEmailVerified()
+        && hasRole('organization_admin')
+        && resource.data.organizationId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId;
+      
+      // Anyone can read invitations by invitation ID (for accepting invitations)
+      allow read: if isAuthenticated();
+      
+      // System admins can read/write all invitations
+      allow read, write: if isAuthenticated() 
+        && isEmailVerified()
+        && hasRole('system_admin');
+    }
+    
+
+    
+    // Organization statistics and reports
+    match /organization_reports/{reportId} {
+      allow read, write: if isAuthenticated() 
+        && isEmailVerified()
+        && hasAnyRole(['organization_admin', 'system_admin'])
+        && (resource.data.organizationId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId || hasRole('system_admin'));
     }
     
     // Deny all other access

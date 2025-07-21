@@ -99,10 +99,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // Logout functionality
     const logoutBtns = document.querySelectorAll('.logout-btn');
     logoutBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', async function(e) {
             e.preventDefault();
+            
             if (confirm('Sigurado ka bang gusto mong mag-logout?')) {
-                window.location.href = 'index.html';
+                try {
+                    // Import auth service
+                    const authServiceModule = await import('../services/auth-service.js');
+                    const authService = authServiceModule.default;
+                    
+                    // Show loading state
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging out...';
+                    
+                    // Call proper logout method
+                    await authService.logout();
+                    
+                    // Clear any cached data
+                    authService.forceClearAuthState();
+                    
+                    // Redirect to home page
+                    window.location.href = '/index.html';
+                    
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    
+                    // Reset button state
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
+                    
+                    // Show error message
+                    alert('Logout failed. Please try again.');
+                }
             }
         });
     });

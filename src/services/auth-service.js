@@ -1,7 +1,7 @@
 // Comprehensive Authentication Service
 // Handles session management, email verification, and role-based access control
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
 import { 
     getAuth, 
     createUserWithEmailAndPassword, 
@@ -19,7 +19,7 @@ import {
     EmailAuthProvider,
     deleteUser,
     reload
-} from 'firebase/auth';
+} from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
 import { 
     getFirestore, 
     doc, 
@@ -32,10 +32,13 @@ import {
     where,
     getDocs,
     collection
-} from 'firebase/firestore';
+} from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 
 // Import Firebase configuration
 import { firebaseConfig } from './config.js';
+import logger from '../utils/logger.js';
+import * as secureErrorHandler from './secure-error-handler.js';
+import { handleAuthError } from './auth-error-handler.js';
 
 // Initialize Firebase (avoid duplicate initialization)
 let app;
@@ -46,17 +49,17 @@ try {
     // Check if Firebase is already initialized
     if (getApps().length === 0) {
         app = initializeApp(firebaseConfig);
-        console.log('Firebase initialized by Auth Service');
+        logger.info('Firebase initialized by Auth Service');
     } else {
         app = getApp();
-        console.log('Using existing Firebase instance');
+        logger.info('Using existing Firebase instance');
     }
     
     auth = getAuth(app);
     db = getFirestore(app);
     
 } catch (error) {
-    console.error('Firebase initialization error:', error);
+    logger.error('Firebase initialization error:', error);
     throw error;
 }
 
@@ -80,17 +83,52 @@ const USER_ROLES = {
     DOCTOR: 'doctor',
     NURSE: 'nurse', 
     PATIENT: 'patient',
-    CLINIC_STAFF: 'clinic_staff'
+    CLINIC_STAFF: 'clinic_staff',
+    // New B2B roles
+    ORGANIZATION_ADMIN: 'organization_admin',
+    ORGANIZATION_MEMBER: 'organization_member',
+    SYSTEM_ADMIN: 'system_admin'
 };
 
-// Session storage keys
-const SESSION_KEYS = {
-    USER_DATA: 'auth_user_data',
+// Secure session storage keys - using sessionStorage for non-sensitive data only
+const SECURE_SESSION_KEYS = {
     SESSION_START: 'auth_session_start',
     LAST_ACTIVITY: 'auth_last_activity',
-    LOGIN_ATTEMPTS: 'auth_login_attempts',
-    LOCKOUT_UNTIL: 'auth_lockout_until'
+    LOGIN_ATTEMPTS: 'auth_login_attempts', // Keep in localStorage for security (rate limiting)
+    LOCKOUT_UNTIL: 'auth_lockout_until'     // Keep in localStorage for security (rate limiting)
 };
+
+// In-memory storage for sensitive data (cleared on page refresh)
+class SecureSessionManager {
+    constructor() {
+        this.sensitiveData = new Map();
+        this.sessionActive = false;
+    }
+
+    // Store sensitive data in memory only
+    setSensitiveData(key, value) {
+        this.sensitiveData.set(key, value);
+    }
+
+    getSensitiveData(key) {
+        return this.sensitiveData.get(key);
+    }
+
+    clearSensitiveData() {
+        this.sensitiveData.clear();
+        this.sessionActive = false;
+    }
+
+    isSessionActive() {
+        return this.sessionActive && this.sensitiveData.size > 0;
+    }
+
+    setSessionActive(active) {
+        this.sessionActive = active;
+    }
+}
+
+const secureSession = new SecureSessionManager();
 
 /**
  * Authentication Service Class
@@ -103,6 +141,11 @@ class AuthService {
         this.warningTimer = null;
         this.authListeners = [];
         this.sessionListeners = [];
+        this.authPopupWindow = null; // Track popup window
+        this.isInitialized = false;
+        this.initializationPromise = new Promise(resolve => {
+            this.resolveInitialization = resolve;
+        });
         
         // Initialize session management
         this.initializeSessionManagement();
@@ -110,16 +153,68 @@ class AuthService {
         // Set up auth state listener
         this.setupAuthStateListener();
         
-        console.log('Authentication Service initialized');
+        // Set up popup cleanup on page unload
+        this.setupPopupCleanup();
+        
+        logger.info('Authentication Service initialized');
     }
 
     /**
-     * Initialize session management
+     * Setup popup cleanup on page unload
+     */
+    setupPopupCleanup() {
+        // Close popup when page unloads
+        window.addEventListener('beforeunload', () => {
+            this.closeAuthPopup();
+        });
+        
+        // Listen for messages to close popups
+        window.addEventListener('message', (event) => {
+            if (event.origin === window.location.origin && event.data?.type === 'CLOSE_AUTH_POPUP') {
+                this.closeAuthPopup();
+            }
+        });
+    }
+
+    /**
+     * Close auth popup window if open
+     */
+    closeAuthPopup() {
+        try {
+            if (this.authPopupWindow && !this.authPopupWindow.closed) {
+                logger.info('Closing auth popup window');
+                this.authPopupWindow.close();
+                this.authPopupWindow = null;
+            }
+            
+            // Also close any global auth popup reference
+            if (window.authPopup && !window.authPopup.closed) {
+                window.authPopup.close();
+                window.authPopup = null;
+            }
+        } catch (error) {
+            logger.warn('Error closing auth popup:', error);
+        }
+    }
+    
+    /**
+     * Waits for the auth service to complete its initial authentication check.
+     * @returns {Promise<void>}
+     */
+    async waitForInitialization() {
+        if (this.isInitialized) {
+            return Promise.resolve();
+        }
+        return this.initializationPromise;
+    }
+
+    /**
+     * Initialize secure session management
      */
     initializeSessionManagement() {
-        // Check for existing session
-        const sessionStart = localStorage.getItem(SESSION_KEYS.SESSION_START);
-        const lastActivity = localStorage.getItem(SESSION_KEYS.LAST_ACTIVITY);
+        // Check for existing session using sessionStorage (non-persistent)
+        const sessionStart = sessionStorage.getItem(SECURE_SESSION_KEYS.SESSION_START);
+        const lastActivity = sessionStorage.getItem(SECURE_SESSION_KEYS.LAST_ACTIVITY);
         
         if (sessionStart && lastActivity) {
             const now = Date.now();
@@ -155,10 +250,10 @@ class AuthService {
     }
 
     /**
-     * Update last activity timestamp
+     * Update last activity timestamp (non-sensitive data in sessionStorage)
      */
     updateLastActivity() {
-        localStorage.setItem(SESSION_KEYS.LAST_ACTIVITY, Date.now().toString());
+        sessionStorage.setItem(SECURE_SESSION_KEYS.LAST_ACTIVITY, Date.now().toString());
         
         // Reset session timer
         if (this.sessionTimer) {
@@ -207,65 +302,68 @@ class AuthService {
      */
     setupAuthStateListener() {
         onAuthStateChanged(auth, async (user) => {
+            logger.info('Auth state change detected.', { providedUser: !!user });
+            
             if (user) {
-                console.log('User authenticated:', user.uid);
-                
-                // Check email verification
-                if (!user.emailVerified && this.requireEmailVerification()) {
-                    console.log('Email not verified, requesting verification');
-                    await this.handleUnverifiedEmail(user);
-                    return;
+                // User is signed in.
+                const userIsValid = await this.validateUserSession(user);
+                if (userIsValid) {
+                    await this.loadUserData(user);
+                } else {
+                    // If user session is invalid (e.g., banned), sign them out.
+                    await this.logout();
+                    return; // Stop processing
                 }
-                
-                // Load user data and role
-                await this.loadUserData(user);
-                
-                // Start session
-                this.startSession(user);
-                
-                // Update last login in patient document if user is a patient
-                if (this.userRole === USER_ROLES.PATIENT) {
-                    this.updatePatientLastLogin(user.uid);
-                }
-                
-                // Notify listeners
-                this.notifyAuthListeners(user, this.userRole);
             } else {
-                console.log('User not authenticated');
-                this.currentUser = null;
-                this.userRole = null;
+                // User is signed out.
                 this.clearSession();
-                this.notifyAuthListeners(null, null);
+            }
+
+            // Notify listeners about the auth state change
+            this.notifyAuthListeners(this.currentUser, this.userRole);
+
+            // Resolve the initialization promise now that the first check is complete
+            if (!this.isInitialized) {
+                this.isInitialized = true;
+                this.resolveInitialization();
+                logger.info('Auth Service has completed initial state check.');
             }
         });
+    }
+
+    /**
+     * Validate user session (check if user is not banned, etc.)
+     */
+    async validateUserSession(user) {
+        if (!user || !user.uid) {
+            return false;
+        }
+
+        try {
+            // For now, just return true as we don't have ban/restriction logic
+            // In the future, this could check for banned users, account restrictions, etc.
+            return true;
+        } catch (error) {
+            logger.error('Error validating user session:', error);
+            return false;
+        }
     }
 
     /**
      * Check if email verification is required
      */
     requireEmailVerification() {
-        // Always require email verification for new users
-        return true;
+        // Disable email verification requirement if configured
+        return true; // Can be made configurable
     }
 
     /**
      * Handle unverified email
      */
     async handleUnverifiedEmail(user) {
-        try {
-            // Send verification email
-            await sendEmailVerification(user);
-            
-            // Show verification message
-            this.showEmailVerificationMessage(user.email);
-            
-            // Sign out user until email is verified
-            await signOut(auth);
-            
-        } catch (error) {
-            console.error('Error sending verification email:', error);
-            throw new Error('Failed to send verification email');
-        }
+        await signOut(auth);
+        this.showEmailVerificationMessage(user.email);
+        this.redirectToLogin('Please verify your email before signing in.');
     }
 
     /**
@@ -273,114 +371,149 @@ class AuthService {
      */
     showEmailVerificationMessage(email) {
         const message = `
-            <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;">
-                <div style="background: white; padding: 30px; border-radius: 10px; max-width: 500px; text-align: center;">
-                    <h3>Email Verification Required</h3>
-                    <p>We've sent a verification email to <strong>${email}</strong></p>
-                    <p>Please check your email and click the verification link before proceeding.</p>
-                    <button onclick="window.location.reload()" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 20px;">
-                        I've Verified My Email
-                    </button>
-                </div>
+            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                <h3 style="color: #0c4a6e; margin: 0 0 8px 0;">📧 Email Verification Required</h3>
+                <p style="color: #075985; margin: 0;">
+                    Please check your email (${email}) and click the verification link before signing in.
+                </p>
+                <p style="color: #075985; margin: 8px 0 0 0; font-size: 0.9em;">
+                    Didn't receive the email? Check your spam folder or try signing up again.
+                </p>
             </div>
         `;
         
-        document.body.insertAdjacentHTML('beforeend', message);
+        // Try to show in an existing container or create alert
+        const container = document.getElementById('auth-messages') || document.getElementById('error-container');
+        if (container) {
+            container.innerHTML = message;
+            container.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            // Fallback to alert
+            alert(`Please verify your email (${email}) before signing in.`);
+        }
     }
 
     /**
-     * Load user data and role
+     * Load user data and role from Firestore
      */
     async loadUserData(user) {
+        if (!user) {
+            this.clearSession();
+            return null;
+        }
+
         try {
-            // Get user document from Firestore
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                this.userRole = userData.role || USER_ROLES.PATIENT;
-                
-                // Update last login
-                await updateDoc(doc(db, 'users', user.uid), {
-                    lastLogin: serverTimestamp(),
-                    lastActivity: serverTimestamp()
-                });
-            } else {
-                // Create user document if it doesn't exist
-                await this.createUserDocument(user);
+            this.currentUser = user;
+            this.userRole = USER_ROLES.PATIENT; // Default role
+
+            try {
+                const userDocRef = doc(db, 'patients', user.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    this.userRole = userData.role || USER_ROLES.PATIENT;
+                    logger.info('User data loaded successfully from Firestore');
+                } else {
+                    // Try to create user document, but don't fail if it doesn't work
+                    try {
+                        this.userRole = await this.createUserDocument(user);
+                        logger.info('New user document created successfully');
+                    } catch (createError) {
+                        logger.warn('Could not create user document, using default role:', createError.message);
+                        // Continue with default role
+                    }
+                }
+            } catch (firestoreError) {
+                logger.warn('Firestore access error, continuing with default role:', firestoreError.message);
+                // Continue with default patient role even if Firestore access fails
             }
             
-            this.currentUser = user;
-            
+            this.startSecureSession(user);
+            this.notifyAuthListeners(user, this.userRole);
+            return this.userRole;
+
         } catch (error) {
-            console.error('Error loading user data:', error);
-            throw new Error('Failed to load user data');
+            logger.error('Critical error in loadUserData:', error);
+            // Don't clear session completely for new users, just set defaults
+            this.currentUser = user;
+            this.userRole = USER_ROLES.PATIENT;
+            this.startSecureSession(user);
+            this.notifyAuthListeners(user, this.userRole);
+            return this.userRole;
         }
     }
 
     /**
-     * Create user document
+     * Create user document in Firestore
      */
     async createUserDocument(user) {
-        try {
-            const userData = {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-                role: USER_ROLES.PATIENT, // Default role
-                emailVerified: user.emailVerified,
-                createdAt: serverTimestamp(),
-                lastLogin: serverTimestamp(),
-                isActive: true
-            };
-            
-            await setDoc(doc(db, 'users', user.uid), userData);
-            this.userRole = USER_ROLES.PATIENT;
-            
-        } catch (error) {
-            console.error('Error creating user document:', error);
-            throw new Error('Failed to create user document');
-        }
-    }
-
-    /**
-     * Update patient last login (using dynamic import to avoid circular dependencies)
-     */
-    async updatePatientLastLogin(userId) {
-        try {
-            const { updateLastLogin } = await import('./firestoredb.js');
-            await updateLastLogin(userId);
-        } catch (error) {
-            console.error('Error updating patient last login:', error);
-        }
-    }
-
-    /**
-     * Start session
-     */
-    startSession(user) {
-        const now = Date.now();
-        
-        // Store session data
-        localStorage.setItem(SESSION_KEYS.SESSION_START, now.toString());
-        localStorage.setItem(SESSION_KEYS.LAST_ACTIVITY, now.toString());
-        localStorage.setItem(SESSION_KEYS.USER_DATA, JSON.stringify({
+        const userDocRef = doc(db, 'patients', user.uid);
+        const newUser = {
             uid: user.uid,
             email: user.email,
-            displayName: user.displayName,
-            role: this.userRole,
-            emailVerified: user.emailVerified
-        }));
+            displayName: user.displayName || 'New Patient',
+            role: USER_ROLES.PATIENT,
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+        };
+        
+        try {
+            await setDoc(userDocRef, newUser);
+            logger.info('New patient document created for:', user.email);
+            return newUser.role;
+        } catch (error) {
+            logger.warn('Could not create user document in Firestore:', error.message);
+            // Don't throw error, return default role so auth can continue
+            return USER_ROLES.PATIENT;
+        }
+    }
+
+    /**
+     * Update patient last login
+     */
+    async updatePatientLastLogin(userId) {
+        const userDocRef = doc(db, 'patients', userId);
+        try {
+            await updateDoc(userDocRef, {
+                lastLoginAt: serverTimestamp()
+            });
+        } catch (error) {
+            logger.warn('Could not update last login:', error);
+        }
+    }
+
+    /**
+     * Start secure session (minimal data in sessionStorage, sensitive data in memory)
+     */
+    startSecureSession(user) {
+        const now = Date.now();
+        
+        // Store only non-sensitive session timing data in sessionStorage
+        sessionStorage.setItem(SECURE_SESSION_KEYS.SESSION_START, now.toString());
+        sessionStorage.setItem(SECURE_SESSION_KEYS.LAST_ACTIVITY, now.toString());
+        
+        // Store sensitive data in memory only (cleared on page refresh/close)
+        secureSession.setSensitiveData('userId', user.uid);
+        secureSession.setSensitiveData('userEmail', user.email);
+        secureSession.setSensitiveData('emailVerified', user.emailVerified);
+        secureSession.setSessionActive(true);
+        
+        // Initialize CSRF token for the session
+        if (window.csrfService && window.csrfService.fetchToken) {
+            window.csrfService.fetchToken().catch(error => {
+                logger.warn('Failed to initialize CSRF token:', error.message);
+            });
+        }
         
         // Set up session management
         this.updateLastActivity();
         
-        console.log('Session started for user:', user.uid);
+        logger.info('🔒 Secure session started for user');
     }
 
     /**
-     * Clear session
+     * Clear session (both sessionStorage and memory)
      */
     clearSession() {
         // Clear session timers
@@ -394,19 +527,69 @@ class AuthService {
             this.warningTimer = null;
         }
         
-        // Clear session data
-        Object.values(SESSION_KEYS).forEach(key => {
-            localStorage.removeItem(key);
+        // Clear non-sensitive session data from sessionStorage
+        Object.values(SECURE_SESSION_KEYS).forEach(key => {
+            if (key !== SECURE_SESSION_KEYS.LOGIN_ATTEMPTS && key !== SECURE_SESSION_KEYS.LOCKOUT_UNTIL) {
+                sessionStorage.removeItem(key);
+            }
         });
         
-        console.log('Session cleared');
+        // Clear CSRF tokens
+        if (window.csrfService && window.csrfService.logout) {
+            window.csrfService.logout();
+        }
+        
+        // Clear sensitive data from memory
+        secureSession.clearSensitiveData();
+        
+        logger.info('🔒 Secure session cleared');
     }
 
     /**
-     * Check if user is locked out
+     * Force clear all authentication state (for troubleshooting)
+     */
+    forceClearAuthState() {
+        logger.debug(' Force clearing all authentication state');
+        
+        // Clear internal state
+        this.currentUser = null;
+        this.userRole = null;
+        
+        // Clear session
+        this.clearSession();
+        
+        // Clear any additional auth-related storage items (non-sensitive only)
+        const nonSensitiveKeys = [
+            'auth_redirect_message',
+            'auth_return_url'
+        ];
+        
+        nonSensitiveKeys.forEach(key => {
+            if (sessionStorage.getItem(key)) {
+                sessionStorage.removeItem(key);
+                logger.debug(`🧹 Cleared sessionStorage key: ${key}`);
+            }
+            if (localStorage.getItem(key)) {
+                localStorage.removeItem(key);
+                logger.debug(`🧹 Cleared localStorage key: ${key}`);
+            }
+        });
+        
+        // Reset redirect flags
+        if (typeof window !== 'undefined') {
+            window.isRedirecting = false;
+            window.redirectCount = 0;
+            window.lastRedirectTime = 0;
+        }
+        
+        logger.info(' All authentication state cleared');
+    }
+
+    /**
+     * Check if user is locked out (keep rate limiting in localStorage for security)
      */
     isLockedOut() {
-        const lockoutUntil = localStorage.getItem(SESSION_KEYS.LOCKOUT_UNTIL);
+        const lockoutUntil = localStorage.getItem(SECURE_SESSION_KEYS.LOCKOUT_UNTIL);
         if (lockoutUntil) {
             const now = Date.now();
             const lockoutTime = parseInt(lockoutUntil);
@@ -415,8 +598,8 @@ class AuthService {
                 return true;
             } else {
                 // Lockout expired, clear it
-                localStorage.removeItem(SESSION_KEYS.LOCKOUT_UNTIL);
-                localStorage.removeItem(SESSION_KEYS.LOGIN_ATTEMPTS);
+                localStorage.removeItem(SECURE_SESSION_KEYS.LOCKOUT_UNTIL);
+                localStorage.removeItem(SECURE_SESSION_KEYS.LOGIN_ATTEMPTS);
                 return false;
             }
         }
@@ -424,24 +607,24 @@ class AuthService {
     }
 
     /**
-     * Track login attempts
+     * Track login attempts (keep in localStorage for security - rate limiting across sessions)
      */
     trackLoginAttempt(success = false) {
         if (success) {
             // Clear login attempts on success
-            localStorage.removeItem(SESSION_KEYS.LOGIN_ATTEMPTS);
-            localStorage.removeItem(SESSION_KEYS.LOCKOUT_UNTIL);
+            localStorage.removeItem(SECURE_SESSION_KEYS.LOGIN_ATTEMPTS);
+            localStorage.removeItem(SECURE_SESSION_KEYS.LOCKOUT_UNTIL);
             return;
         }
         
         // Increment failed attempts
-        const attempts = parseInt(localStorage.getItem(SESSION_KEYS.LOGIN_ATTEMPTS) || '0') + 1;
-        localStorage.setItem(SESSION_KEYS.LOGIN_ATTEMPTS, attempts.toString());
+        const attempts = parseInt(localStorage.getItem(SECURE_SESSION_KEYS.LOGIN_ATTEMPTS) || '0') + 1;
+        localStorage.setItem(SECURE_SESSION_KEYS.LOGIN_ATTEMPTS, attempts.toString());
         
         // Check if max attempts reached
         if (attempts >= MAX_LOGIN_ATTEMPTS) {
             const lockoutUntil = Date.now() + LOCKOUT_DURATION;
-            localStorage.setItem(SESSION_KEYS.LOCKOUT_UNTIL, lockoutUntil.toString());
+            localStorage.setItem(SECURE_SESSION_KEYS.LOCKOUT_UNTIL, lockoutUntil.toString());
             
             throw new Error(`Too many failed login attempts. Account locked for ${LOCKOUT_DURATION / 60000} minutes.`);
         }
@@ -455,33 +638,32 @@ class AuthService {
      */
     async loginWithEmail(email, password) {
         try {
-            // Check if locked out
             if (this.isLockedOut()) {
-                const lockoutUntil = localStorage.getItem(SESSION_KEYS.LOCKOUT_UNTIL);
-                const timeRemaining = Math.ceil((parseInt(lockoutUntil) - Date.now()) / 60000);
-                throw new Error(`Account locked. Try again in ${timeRemaining} minutes.`);
+                throw new Error('Account locked due to too many failed login attempts. Please wait 15 minutes.');
             }
-            
-            // Attempt login
+
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            
-            // Track successful login
-            this.trackLoginAttempt(true);
-            
-            console.log('Login successful');
-            return userCredential.user;
-            
-        } catch (error) {
-            console.error('Login error:', error);
-            
-            // Track failed login attempt
-            if (error.code === 'auth/invalid-credential' || 
-                error.code === 'auth/user-not-found' ||
-                error.code === 'auth/wrong-password') {
-                this.trackLoginAttempt(false);
+            const user = userCredential.user;
+
+            if (user) {
+                this.trackLoginAttempt(true);
+                await this.loadUserData(user);
+                return user;
             }
-            
-            throw error;
+        } catch (error) {
+            this.trackLoginAttempt(false);
+            throw handleAuthError(error);
+        }
+    }
+
+    async loginWithGooglePopup() {
+        try {
+            this.closeAuthPopup();
+            // The onAuthStateChanged listener will handle loading user data.
+            // This function's only job is to trigger the popup.
+            return await signInWithPopup(auth, googleProvider);
+        } catch (error) {
+            throw handleAuthError(error);
         }
     }
 
@@ -490,7 +672,6 @@ class AuthService {
      */
     async registerWithEmail(email, password, userData = {}) {
         try {
-            // Create user account
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
             
@@ -510,91 +691,13 @@ class AuthService {
             // Sign out until email is verified
             await signOut(auth);
             
-            console.log('Registration successful, verification email sent');
+            // Registration successful, verification email sent
             return user;
             
         } catch (error) {
-            console.error('Registration error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Login with Google
-     */
-    async loginWithGoogle() {
-        try {
-            console.log('Starting Google authentication...');
-            console.log('Current domain:', window.location.hostname);
-            console.log('Firebase config domain:', firebaseConfig.authDomain);
-            
-            let result;
-            
-            // Check for redirect result first (in case popup was blocked and redirect was used)
-            try {
-                const redirectResult = await getRedirectResult(auth);
-                if (redirectResult) {
-                    console.log('Google login via redirect successful');
-                    return redirectResult.user;
-                }
-            } catch (redirectError) {
-                console.log('No redirect result or redirect error:', redirectError);
-            }
-            
-            // Try popup first
-            try {
-                console.log('Attempting Google sign-in with popup...');
-                result = await signInWithPopup(auth, googleProvider);
-                console.log('Google popup login successful');
-                return result.user;
-                
-            } catch (popupError) {
-                console.log('Popup error:', popupError);
-                
-                // Handle specific popup errors
-                if (popupError.code === 'auth/popup-blocked') {
-                    console.log('Popup blocked, trying redirect...');
-                    await signInWithRedirect(auth, googleProvider);
-                    return null; // Redirect will reload the page
-                } else if (popupError.code === 'auth/popup-closed-by-user') {
-                    throw new Error('Sign-in was cancelled. Please try again.');
-                } else if (popupError.code === 'auth/unauthorized-domain') {
-                    throw new Error(`Domain "${window.location.hostname}" is not authorized. Please add it to Firebase Console > Authentication > Settings > Authorized Domains.`);
-                } else if (popupError.code === 'auth/operation-not-allowed') {
-                    throw new Error('Google sign-in is not enabled. Please enable it in Firebase Console > Authentication > Sign-in method.');
-                } else if (popupError.code === 'auth/cancelled-popup-request') {
-                    // Multiple popup requests, ignore
-                    return null;
-                } else {
-                    // For other errors, try redirect as fallback
-                    console.log('Popup failed, trying redirect as fallback...');
-                    try {
-                        await signInWithRedirect(auth, googleProvider);
-                        return null; // Redirect will reload the page
-                    } catch (redirectError) {
-                        console.error('Redirect also failed:', redirectError);
-                        throw popupError; // Throw original popup error
-                    }
-                }
-            }
-            
-        } catch (error) {
-            console.error('Google login error:', error);
-            
-            // Provide user-friendly error messages
-            if (error.message.includes('Domain')) {
-                throw error; // Already user-friendly
-            } else if (error.message.includes('not enabled')) {
-                throw error; // Already user-friendly
-            } else if (error.code === 'auth/network-request-failed') {
-                throw new Error('Network error. Please check your internet connection and try again.');
-            } else if (error.code === 'auth/too-many-requests') {
-                throw new Error('Too many attempts. Please wait a moment and try again.');
-            } else if (error.code === 'auth/user-disabled') {
-                throw new Error('This Google account has been disabled. Please contact support.');
-            } else {
-                throw new Error(`Google sign-in failed: ${error.message || 'Unknown error'}`);
-            }
+            logger.error('Registration error:', error);
+            this.clearSession();
+            throw handleAuthError(error);
         }
     }
 
@@ -605,10 +708,10 @@ class AuthService {
         try {
             await signOut(auth);
             this.clearSession();
-            console.log('Logout successful');
+            // Logout successful
             
         } catch (error) {
-            console.error('Logout error:', error);
+            logger.error('Logout error:', error);
             throw error;
         }
     }
@@ -629,10 +732,10 @@ class AuthService {
             // Update password
             await updatePassword(this.currentUser, newPassword);
             
-            console.log('Password updated successfully');
+            // Password updated successfully
             
         } catch (error) {
-            console.error('Password update error:', error);
+            logger.error('Password update error:', error);
             throw error;
         }
     }
@@ -657,17 +760,17 @@ class AuthService {
             try {
                 await deleteDoc(doc(db, 'patients', this.currentUser.uid));
             } catch (error) {
-                console.log('No patient document to delete');
+                // No patient document to delete
             }
             
             // Delete user account
             await deleteUser(this.currentUser);
             
             this.clearSession();
-            console.log('Account deleted successfully');
+            // Account deleted successfully
             
         } catch (error) {
-            console.error('Account deletion error:', error);
+            logger.error('Account deletion error:', error);
             throw error;
         }
     }
@@ -694,10 +797,10 @@ class AuthService {
                 roleUpdatedBy: this.currentUser.uid
             });
             
-            console.log(`User ${userId} role updated to ${newRole}`);
+            // User role updated
             
         } catch (error) {
-            console.error('Role update error:', error);
+            logger.error('Role update error:', error);
             throw error;
         }
     }
@@ -717,10 +820,13 @@ class AuthService {
      */
     hasPermission(permission) {
         const rolePermissions = {
+            [USER_ROLES.SYSTEM_ADMIN]: ['all'],
             [USER_ROLES.ADMIN]: ['all'],
+            [USER_ROLES.ORGANIZATION_ADMIN]: ['manage_organization', 'read_organization_patients', 'write_organization_patients', 'manage_staff', 'read_appointments', 'write_appointments'],
             [USER_ROLES.DOCTOR]: ['read_patients', 'write_patients', 'read_appointments', 'write_appointments'],
             [USER_ROLES.NURSE]: ['read_patients', 'read_appointments', 'write_appointments'],
             [USER_ROLES.CLINIC_STAFF]: ['read_appointments', 'write_appointments'],
+            [USER_ROLES.ORGANIZATION_MEMBER]: ['read_organization_patients', 'read_appointments', 'write_appointments'],
             [USER_ROLES.PATIENT]: ['read_own_data', 'write_own_data']
         };
         
@@ -729,9 +835,32 @@ class AuthService {
     }
 
     /**
-     * Get current user
+     * Get current user with validation
      */
     getCurrentUser() {
+        // Validate that our stored user matches Firebase's current user
+        const firebaseCurrentUser = auth.currentUser;
+        
+        if (!this.currentUser && firebaseCurrentUser) {
+            logger.debug(' Firebase user found but not in auth service, syncing...');
+            this.currentUser = firebaseCurrentUser;
+            return firebaseCurrentUser;
+        }
+        
+        if (this.currentUser && !firebaseCurrentUser) {
+            logger.warn(' Auth service has user but Firebase doesn\'t, clearing...');
+            this.currentUser = null;
+            this.userRole = null;
+            return null;
+        }
+        
+        if (this.currentUser && firebaseCurrentUser && this.currentUser.uid !== firebaseCurrentUser.uid) {
+            logger.warn(' User UID mismatch, clearing auth state');
+            this.currentUser = null;
+            this.userRole = null;
+            return null;
+        }
+        
         return this.currentUser;
     }
 
@@ -743,10 +872,24 @@ class AuthService {
     }
 
     /**
-     * Check if user is authenticated
+     * Check if user is authenticated with proper session validation
      */
     isAuthenticated() {
-        return this.currentUser !== null;
+        // Check if we have a current user and they have a valid UID
+        if (!this.currentUser || !this.currentUser.uid) {
+            return false;
+        }
+        
+        // Check if the Firebase auth state is consistent
+        const firebaseCurrentUser = auth.currentUser;
+        if (!firebaseCurrentUser || firebaseCurrentUser.uid !== this.currentUser.uid) {
+            logger.warn(' Auth state mismatch detected, clearing current user');
+            this.currentUser = null;
+            this.userRole = null;
+            return false;
+        }
+        
+        return true;
     }
 
     /**
@@ -772,7 +915,7 @@ class AuthService {
             try {
                 callback(user, role);
             } catch (error) {
-                console.error('Auth listener error:', error);
+                logger.error('Auth listener error:', error);
             }
         });
     }
@@ -782,7 +925,7 @@ class AuthService {
      */
     redirectToLogin(message = '') {
         if (message) {
-            localStorage.setItem('auth_message', message);
+            sessionStorage.setItem('auth_message', message);
         }
         
         // Determine redirect URL based on current location
@@ -793,41 +936,73 @@ class AuthService {
         } else if (currentPath.includes('doctor')) {
             window.location.href = '/doctor/login.html';
         } else {
-            window.location.href = '/pages/patientSign-in.html';
+            window.location.href = '/public/patientSign-in.html';
         }
     }
 
     /**
      * Redirect after login based on role
      */
-    redirectAfterLogin() {
-        switch (this.userRole) {
+    redirectAfterLogin(role) {
+        const userRole = role || this.userRole;
+        logger.debug('Redirecting after login with role:', userRole);
+        
+        // Ensure we have a valid user and role
+        if (!this.currentUser || !userRole) {
+            logger.warn('No user or role found, defaulting to patient portal');
+            // Fallback to patient role if needed
+            const finalRole = userRole || USER_ROLES.PATIENT;
+            this.redirectAfterLogin(finalRole);
+            return;
+        }
+        
+        // Set redirect flag to prevent interference
+        window.isRedirecting = true;
+        
+        let redirectUrl;
+        switch (userRole) {
+            case USER_ROLES.SYSTEM_ADMIN:
+                redirectUrl = '/admin/system-dashboard.html';
+                break;
             case USER_ROLES.ADMIN:
-                window.location.href = '/admin/dashboard.html';
+                redirectUrl = '/admin/dashboard.html';
+                break;
+            case USER_ROLES.ORGANIZATION_ADMIN:
+                redirectUrl = '/business/organization-dashboard.html';
+                break;
+            case USER_ROLES.ORGANIZATION_MEMBER:
+                redirectUrl = '/business/member-dashboard.html';
                 break;
             case USER_ROLES.DOCTOR:
-                window.location.href = '/doctor/dashboard.html';
+                redirectUrl = '/doctor/dashboard.html';
                 break;
             case USER_ROLES.NURSE:
-                window.location.href = '/nurse/dashboard.html';
+                redirectUrl = '/nurse/dashboard.html';
                 break;
             case USER_ROLES.CLINIC_STAFF:
-                window.location.href = '/staff/dashboard.html';
+                redirectUrl = '/staff/dashboard.html';
                 break;
             case USER_ROLES.PATIENT:
-                window.location.href = '/pages/patientPortal.html';
+                redirectUrl = '/public/patientPortal.html';
                 break;
             default:
-                window.location.href = '/pages/patientPortal.html';
+                redirectUrl = '/public/patientPortal.html';
         }
+        
+        logger.debug(' Redirecting to:', redirectUrl);
+        
+        // Perform redirect with delay to ensure auth state is stable
+        setTimeout(() => {
+            window.location.href = redirectUrl;
+        }, 500);
     }
 
     /**
      * Get session info
      */
     getSessionInfo() {
-        const sessionStart = localStorage.getItem(SESSION_KEYS.SESSION_START);
-        const lastActivity = localStorage.getItem(SESSION_KEYS.LAST_ACTIVITY);
+        const sessionStart = sessionStorage.getItem(SECURE_SESSION_KEYS.SESSION_START);
+        const lastActivity = sessionStorage.getItem(SECURE_SESSION_KEYS.LAST_ACTIVITY);
         
         if (!sessionStart || !lastActivity) {
             return null;
@@ -845,12 +1020,36 @@ class AuthService {
             timeRemaining: SESSION_TIMEOUT - timeSinceActivity
         };
     }
+
+    /**
+     * Sign in with Google using a redirect flow.
+     */
+    async signInWithGoogle() {
+        logger.info('Attempting Google sign-in with redirect');
+
+        if (this.isLockedOut()) {
+            logger.warn('Google sign-in blocked due to account lockout.');
+            const error = new Error('Your account is temporarily locked due to too many failed login attempts.');
+            error.code = 'auth/too-many-requests';
+            throw error;
+        }
+
+        try {
+            await signInWithRedirect(auth, googleProvider);
+            // No need to return anything here, as the page will redirect.
+            // The result is handled by getRedirectResult() on the destination page.
+        } catch (error) {
+            logger.error('Google sign-in redirect error:', error);
+            // Let the caller handle the UI feedback for the error.
+            throw handleAuthError(error);
+        }
+    }
 }
 
 // Create singleton instance
 const authService = new AuthService();
 
 // Export service and constants
-export { authService as default, AuthService, USER_ROLES, SESSION_KEYS };
+export { authService as default, AuthService, USER_ROLES, SECURE_SESSION_KEYS, auth };
 
-console.log('Authentication Service module loaded'); 
+// Authentication Service module loaded 

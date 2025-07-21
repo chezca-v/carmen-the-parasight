@@ -1,9 +1,31 @@
+/**
+ * Firestore Database Service - Secure Patient Data Management
+ * Provides secure and validated patient data operations with Firestore
+ */
+
+// Import logger for production-safe logging
+import('../utils/logger.js').then(({ default: logger }) => {
+    window.firestoreLogger = logger;
+}).catch(() => {
+    // Fallback if logger not available
+    window.firestoreLogger = {
+        info: (...args) => console.log(...args),
+        error: (...args) => console.error(...args),
+        warn: (...args) => console.warn(...args),
+        debug: (...args) => console.log(...args)
+    };
+});
+
+// Import Firebase modules
+let db = null;
+let auth = null;
+
 // Firestore Database Service
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
 import { 
     getAuth, 
     onAuthStateChanged
-} from 'firebase/auth';
+} from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
 import { 
     getFirestore, 
     doc, 
@@ -22,10 +44,19 @@ import {
     arrayRemove,
     serverTimestamp,
     onSnapshot
-} from 'firebase/firestore';
+} from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 
 // Import Firebase configuration from config.js
 import { firebaseConfig } from './config.js';
+
+// Import USER_ROLES constant
+const USER_ROLES = {
+    ADMIN: 'admin',
+    DOCTOR: 'doctor',
+    PATIENT: 'patient',
+    ORGANIZATION_ADMIN: 'organization_admin',
+    ORGANIZATION_MEMBER: 'organization_member'
+};
 
 // Import validation utilities
 import { 
@@ -40,29 +71,28 @@ import {
 
 // Initialize Firebase (avoid duplicate initialization)
 let app;
-let auth;
-let db;
 
 try {
     // Check if Firebase is already initialized
     if (getApps().length === 0) {
         app = initializeApp(firebaseConfig);
-        console.log('Firebase initialized by Firestore service');
+        // Firebase initialized by Firestore service
     } else {
         app = getApp();
-        console.log('Using existing Firebase instance');
+        // Using existing Firebase instance
     }
     
     auth = getAuth(app);
     db = getFirestore(app);
     
 } catch (error) {
-    console.error('Firebase initialization error:', error);
+    const logger = window.firestoreLogger || console;
+    logger.error('Firebase initialization error:', error);
     throw error;
 }
 
 // Log Firebase initialization
-console.log('Firestore DB Service initialized with project:', firebaseConfig.projectId);
+// Firestore DB Service initialized
 
 // Export Firebase instances for global access (if needed)
 window.firebaseApp = app;
@@ -103,11 +133,12 @@ export async function getPatientData(userId) {
         if (userDoc.exists()) {
             return userDoc.data();
         } else {
-            console.log('No patient data found for user:', userId);
+            // No patient data found for user
             return null;
         }
     } catch (error) {
-        console.error('Error fetching patient data:', error);
+        const logger = window.firestoreLogger || console;
+        logger.error('Error fetching patient data:', error);
         throw error;
     }
 }
@@ -132,97 +163,78 @@ export async function createPatientDocument(user, additionalData = {}) {
             throw new Error('User is required');
         }
 
-        const firstName = additionalData.firstName || user.displayName?.split(' ')[0] || '';
-        const lastName = additionalData.lastName || user.displayName?.split(' ').slice(1).join(' ') || '';
-        const fullName = `${firstName} ${lastName}`.trim() || user.displayName || '';
+        const emailUsername = user.email.split('@')[0];
         
-        // Calculate age from birth date
-        let age = null;
-        if (additionalData.birthDate) {
-            const birthDate = new Date(additionalData.birthDate);
-            const today = new Date();
-            age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
+        // Detect auth provider from user object
+        let authProvider = 'email'; // default
+        if (user.providerData && user.providerData.length > 0) {
+            const providers = user.providerData.map(p => p.providerId);
+            if (providers.includes('google.com')) {
+                authProvider = 'google';
+            } else if (providers.includes('facebook.com')) {
+                authProvider = 'facebook';
+            } else if (providers.includes('apple.com')) {
+                authProvider = 'apple';
             }
         }
 
         const patientData = {
-            // Basic Information
             uid: user.uid,
             email: user.email,
-            displayName: fullName,
-            photoURL: user.photoURL || null,
-            userType: 'patient',
-            authProvider: additionalData.authProvider || 'email',
+            role: USER_ROLES.PATIENT, // Always assign 'patient' role on creation
             
-            // Personal Information
+            // Personal Information (mostly empty, to be filled out in the portal)
             personalInfo: {
-                firstName: firstName,
-                lastName: lastName,
-                fullName: fullName,
-                dateOfBirth: additionalData.birthDate || null,
-                age: age,
-                gender: additionalData.gender || null,
-                phone: additionalData.phone || '',
-                address: additionalData.address || '',
-                bio: additionalData.bio || '',
-                location: additionalData.location || ''
+                firstName: additionalData.firstName || '',
+                lastName: additionalData.lastName || '',
+                fullName: user.displayName || emailUsername,
+                dateOfBirth: '',
+                age: null,
+                gender: '',
+                phone: '',
+                address: '',
+                bio: 'Welcome to LingapLink!',
             },
+
+            // Set profile as incomplete
+            profileComplete: false,
             
-            // Medical Information
-            medicalInfo: {
-                conditions: {
-                    speech: additionalData.speechConditions || [],
-                    physical: additionalData.physicalConditions || [],
-                    mental: additionalData.mentalConditions || [],
-                    other: additionalData.otherConditions || []
-                },
-                allergies: additionalData.allergies || [],
-                medications: additionalData.medications || [],
-                emergencyContact: {
-                    name: additionalData.emergencyContactName || '',
-                    phone: additionalData.emergencyContactPhone || '',
-                    relationship: additionalData.emergencyContactRelationship || ''
-                }
-            },
-            
-            // Account Settings
-            settings: {
-                notifications: true,
-                language: 'en',
-                theme: 'light',
-                privacy: {
-                    shareData: false,
-                    allowResearch: false
-                }
-            },
-            
-            // Activity Tracking
-            activity: {
-                consultationHistory: [],
-                documents: [],
-                appointments: []
-            },
-            
-            // Timestamps
+            // Timestamps and status
             createdAt: serverTimestamp(),
             lastLoginAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-            
-            // Profile Status
-            profileComplete: Boolean(firstName && lastName && additionalData.phone),
             isActive: true,
-            emailVerified: user.emailVerified || false
+            emailVerified: user.emailVerified || false,
+            authProvider: additionalData.authProvider || authProvider,
         };
 
-        await setDoc(doc(db, 'patients', user.uid), patientData, { merge: true });
-        console.log('Patient document created successfully');
+        await setDoc(doc(db, 'patients', user.uid), patientData);
+        const logger = window.firestoreLogger || console;
+        logger.info('Minimal patient document created successfully for:', user.email, 'with provider:', authProvider);
         return patientData;
+
     } catch (error) {
-        console.error('Error creating patient document:', error);
-        throw error;
+        let errorMessage = 'Failed to create patient document';
+        
+        // Handle specific Firestore errors
+        if (error.code === 'permission-denied') {
+            errorMessage = 'Permission denied. This is likely due to Firestore rules. Please check FIRESTORE_RULES_FIX.md for instructions.';
+            // Log helpful information for debugging
+            console.error('🔒 Firestore Permission Denied Error:');
+            console.error('- Check if user is authenticated:', user ? '✅ Yes' : '❌ No');
+            console.error('- User UID:', user?.uid);
+            console.error('- User email verified:', user?.emailVerified ? '✅ Yes' : '❌ No');
+            console.error('- User providers:', user?.providerData?.map(p => p.providerId));
+            console.error('- Check Firestore rules for Google sign-in compatibility');
+            console.error('- See FIRESTORE_RULES_FIX.md for detailed instructions');
+        } else if (error.code === 'unauthenticated') {
+            errorMessage = 'Authentication required to create patient document.';
+        } else if (error.message) {
+            errorMessage = `Error creating patient document: ${error.message}`;
+        }
+        
+        console.error('Error creating patient document:', errorMessage);
+        throw new Error(errorMessage);
     }
 }
 
@@ -248,12 +260,23 @@ export async function updatePatientPersonalInfo(userId, personalInfo) {
         };
         
         await updateDoc(doc(db, 'patients', userId), updates);
-        console.log('Patient personal info updated successfully');
+        // Patient personal info updated successfully
         return true;
-    } catch (error) {
-        console.error('Error updating patient personal info:', error);
-        throw error;
-    }
+            } catch (error) {
+            let errorMessage = 'Failed to update patient personal info';
+            
+            // Handle specific Firestore errors
+            if (error.code === 'permission-denied') {
+                errorMessage = 'Permission denied. Please check your authentication and Firestore rules.';
+            } else if (error.code === 'unauthenticated') {
+                errorMessage = 'Authentication required to update patient info.';
+            } else if (error.message) {
+                errorMessage = `Error updating patient info: ${error.message}`;
+            }
+            
+            console.error('Error updating patient personal info:', errorMessage);
+            throw new Error(errorMessage);
+        }
 }
 
 /**
@@ -267,12 +290,23 @@ export async function updatePatientMedicalInfo(userId, medicalInfo) {
         };
         
         await updateDoc(doc(db, 'patients', userId), updates);
-        console.log('Patient medical info updated successfully');
+        // Patient medical info updated successfully
         return true;
-    } catch (error) {
-        console.error('Error updating patient medical info:', error);
-        throw error;
-    }
+            } catch (error) {
+            let errorMessage = 'Failed to update patient medical info';
+            
+            // Handle specific Firestore errors
+            if (error.code === 'permission-denied') {
+                errorMessage = 'Permission denied. Please check your authentication and Firestore rules.';
+            } else if (error.code === 'unauthenticated') {
+                errorMessage = 'Authentication required to update medical info.';
+            } else if (error.message) {
+                errorMessage = `Error updating medical info: ${error.message}`;
+            }
+            
+            console.error('Error updating patient medical info:', errorMessage);
+            throw new Error(errorMessage);
+        }
 }
 
 /**
@@ -286,7 +320,7 @@ export async function updatePatientSettings(userId, settings) {
         };
         
         await updateDoc(doc(db, 'patients', userId), updates);
-        console.log('Patient settings updated successfully');
+        // Patient settings updated successfully
         return true;
     } catch (error) {
         console.error('Error updating patient settings:', error);
@@ -323,7 +357,8 @@ export async function addMedicalCondition(userId, category, condition) {
         };
         
         await updateDoc(doc(db, 'patients', userId), updates);
-        console.log('Medical condition added successfully');
+        const logger = window.firestoreLogger || console;
+        logger.info('Medical condition added successfully');
         return true;
     } catch (error) {
         console.error('Error adding medical condition:', error);
@@ -568,12 +603,25 @@ export function listenToPatientData(userId, callback) {
  */
 export async function updateLastLogin(userId) {
     try {
-        await updateDoc(doc(db, 'patients', userId), {
-            lastLoginAt: serverTimestamp()
-        });
-        console.log('Last login updated successfully');
+        console.log('🕐 Updating last login for user:', userId);
+        
+        // First, check if patient document exists
+        const docRef = doc(db, 'patients', userId);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            // Document exists, update it
+            await updateDoc(docRef, {
+                lastLoginAt: serverTimestamp()
+            });
+            console.log('✅ Last login updated successfully');
+        } else {
+            // Document doesn't exist, skip update silently
+            console.log('⚠️ Patient document does not exist, skipping last login update');
+        }
     } catch (error) {
-        console.error('Error updating last login:', error);
+        // Don't throw error, just log it - last login update is not critical
+        console.warn('⚠️ Error updating last login (non-critical):', error.message);
     }
 }
 

@@ -1,24 +1,4 @@
-/* Patient Sign In CSS */
-
-:root {
-    --primary-color: #0066cc; /* Professional blue */
-    --secondary-color: #6c757d; /* Medium gray */
-    --background-color: #f8f9fa; /* Light gray background */
-    --text-color: #212529; /* Dark text */
-    --text-muted: #6c757d; /* Muted text */
-    --card-bg-color: #fff; /* White cards */
-    --success-color: #28a745; /* Green */
-    --warning-color: #ffc107; /* Yellow */
-    --danger-color: #dc3545; /* Red */
-    --border-color: #dee2e6; /* Light border */
-    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --header-height: 70px;
-    --border-radius: 8px;
-    --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --box-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
-    --input-focus-color: rgba(0, 102, 204, 0.1);
-}
-
+/* Patient Sign-in Styles - Modern Design */
 * {
     margin: 0;
     padding: 0;
@@ -26,328 +6,584 @@
 }
 
 body {
-    font-family: var(--font-family);
-    background: var(--background-color);
-    color: var(--text-color);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding-top: var(--header-height);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #1a202c;
     line-height: 1.6;
+    overflow-x: hidden;
 }
 
-/* Dashboard container to match other pages */
-.dashboard-container {
-    background: var(--card-bg-color);
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    padding: 40px;
-    margin: 40px auto;
-    max-width: 500px;
-    width: calc(100% - 40px);
-    position: relative;
+.signin-container {
+    min-height: 100vh;
+    display: flex;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Left Section - Medical Professionals */
+.left-section {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.left-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.9), rgba(0, 242, 254, 0.8));
+    z-index: 1;
+}
+
+.logo-section {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    z-index: 3;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo-icon {
+    font-size: 2rem;
+    color: white;
+    font-weight: 300;
+}
+
+.logo-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.medical-professionals {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex: 1;
+    width: 100%;
 }
 
-.signin-card {
+.professionals-content {
+    position: relative;
     width: 100%;
     max-width: 400px;
-    background: transparent;
-    padding: 0;
-    border-radius: 0;
-    box-shadow: none;
-    border: none;
-    position: static;
-    overflow: visible;
+    height: 400px;
+}
+
+.professional-group {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.professional {
+    position: absolute;
+    border-radius: 20px;
+    background: white;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+}
+
+.professional:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+.professional.doctor {
+    width: 180px;
+    height: 240px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 3;
+}
+
+.professional.nurse-1 {
+    width: 140px;
+    height: 180px;
+    top: 20%;
+    left: 5%;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    z-index: 2;
+}
+
+.professional.nurse-2 {
+    width: 120px;
+    height: 160px;
+    bottom: 15%;
+    right: 10%;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    z-index: 2;
+}
+
+/* Right Section - Form */
+.right-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    background: white;
+    position: relative;
+    max-width: 600px;
+}
+
+.close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
+}
+
+.close-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    text-decoration: none;
+    color: #64748b;
+    font-size: 1.5rem;
+    font-weight: 300;
+    transition: all 0.3s ease;
+}
+
+.close-link:hover {
+    background: rgba(0, 0, 0, 0.2);
+    transform: scale(1.1);
+}
+
+.signin-content {
+    width: 100%;
+    max-width: 400px;
 }
 
 .signin-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 2rem;
 }
 
 .signin-header h1 {
-    color: var(--text-color);
-    font-size: 2.5rem;
-    font-weight: 600;
-    margin-bottom: 8px;
-    line-height: 1.2;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin-bottom: 0.5rem;
 }
 
 .signin-header p {
-    color: var(--text-muted);
-    font-size: 1.125rem;
-    font-weight: 400;
+    color: #64748b;
+    font-size: 1rem;
 }
 
+.signup-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.signup-link:hover {
+    color: #2563eb;
+}
+
+/* Form Styles */
 .signin-form {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-}
-
-.form-group.forgot-password {
-    margin-top: -12px;
-    align-items: flex-end;
+    gap: 0.5rem;
+    position: relative;
 }
 
 .form-group label {
-    color: var(--text-color);
     font-weight: 500;
-    font-size: 0.875rem;
+    color: #374151;
+    font-size: 0.9rem;
 }
 
 .form-group input {
-    padding: 12px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    background: var(--card-bg-color);
+    padding: 0.875rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
     font-size: 1rem;
-    font-family: var(--font-family);
-    transition: all 0.2s ease;
-    color: var(--text-color);
+    transition: all 0.3s ease;
+    background: white;
+    color: #1a202c;
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px var(--input-focus-color);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.form-group input:hover {
-    border-color: var(--primary-color);
+.form-group input::placeholder {
+    color: #9ca3af;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    margin-top: 0.75rem;
+}
+
+.password-toggle:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #374151;
+}
+
+.forgot-password {
+    margin-top: -0.5rem;
+    align-items: flex-end;
 }
 
 .forgot-link {
-    color: var(--primary-color);
+    color: #3b82f6;
     text-decoration: none;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     font-weight: 500;
-    transition: color 0.2s ease;
+    transition: color 0.3s ease;
 }
 
 .forgot-link:hover {
-    text-decoration: underline;
-    color: #0056b3;
+    color: #2563eb;
 }
 
 .signin-btn {
-    background: var(--primary-color);
+    padding: 0.875rem 1.5rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     color: white;
     border: none;
-    padding: 16px 24px;
-    border-radius: var(--border-radius);
+    border-radius: 8px;
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-    overflow: hidden;
-    margin-top: 8px;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    min-height: 56px;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
 }
 
 .signin-btn:hover {
-    background: #0056b3;
     transform: translateY(-2px);
-    box-shadow: var(--box-shadow-hover);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.signin-btn:active {
+    transform: translateY(0);
 }
 
 .signin-btn:disabled {
-    background: var(--secondary-color);
+    opacity: 0.6;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
 }
 
 .loading-spinner {
     width: 20px;
     height: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid transparent;
     border-top: 2px solid white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.form-footer {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.remember-me input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #3b82f6;
+}
+
+.remember-me label {
+    font-size: 0.9rem;
+    color: #64748b;
+    cursor: pointer;
 }
 
 .divider {
-    position: relative;
-    text-align: center;
-    margin: 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
 }
 
 .divider::before,
 .divider::after {
     content: '';
-    position: absolute;
-    top: 50%;
-    width: 45%;
+    flex: 1;
     height: 1px;
-    background: var(--border-color);
-}
-
-.divider::before {
-    left: 0;
-}
-
-.divider::after {
-    right: 0;
+    background: #e5e7eb;
 }
 
 .divider span {
-    background: var(--card-bg-color);
-    padding: 0 16px;
-    color: var(--text-muted);
-    font-size: 0.875rem;
+    color: #64748b;
+    font-size: 0.9rem;
     font-weight: 500;
 }
 
-.google-btn {
-    background: var(--card-bg-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    padding: 12px 20px;
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.social-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.social-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    min-height: 48px;
+    width: 48px;
+    height: 48px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: #64748b;
 }
 
-.google-btn:hover {
-    background: var(--background-color);
-    border-color: var(--primary-color);
-    transform: translateY(-1px);
-    box-shadow: var(--box-shadow);
+.social-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #d1d5db;
 }
 
-.google-btn:disabled {
-    background: var(--secondary-color);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-    opacity: 0.6;
+.social-btn.google-btn:hover {
+    border-color: #4285f4;
 }
 
-.google-icon {
+.social-btn.facebook-btn:hover {
+    border-color: #1877f2;
+}
+
+.social-btn.apple-btn:hover {
+    border-color: #000000;
+}
+
+.social-btn svg {
     width: 20px;
     height: 20px;
 }
 
-.signup-link {
-    text-align: center;
-    margin-top: 24px;
-}
-
-.signup-link p {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-}
-
-.signup-link a {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 500;
-    margin-left: 4px;
-}
-
-.signup-link a:hover {
-    text-decoration: underline;
-}
-
+/* Messages */
 .error-message {
-    background: rgba(220, 53, 69, 0.1);
-    color: var(--danger-color);
-    padding: 12px 16px;
-    border-radius: var(--border-radius);
-    border: 1px solid rgba(220, 53, 69, 0.2);
-    font-size: 0.875rem;
-    margin-top: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    animation: slideDown 0.3s ease;
 }
 
 .success-message {
-    background: rgba(40, 167, 69, 0.1);
-    color: var(--success-color);
-    padding: 12px 16px;
-    border-radius: var(--border-radius);
-    border: 1px solid rgba(40, 167, 69, 0.2);
-    font-size: 0.875rem;
-    margin-top: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    animation: slideDown 0.3s ease;
 }
 
-/* Mobile Responsive */
+@keyframes slideDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-    body {
-        padding-top: 60px;
+    .signin-container {
+        flex-direction: column;
     }
     
-    .dashboard-container {
-        margin: 20px auto;
-        padding: 24px;
-        width: calc(100% - 24px);
+    .left-section {
+        min-height: 30vh;
+        padding: 1rem;
     }
     
-    .signin-header h1 {
-        font-size: 2rem;
+    .professionals-content {
+        max-width: 300px;
+        height: 200px;
     }
     
-    .form-group input {
-        font-size: 16px; /* Prevent zoom on iOS */
+    .professional.doctor {
+        width: 120px;
+        height: 160px;
     }
     
-    .signin-btn,
-    .google-btn {
-        font-size: 0.875rem;
+    .professional.nurse-1 {
+        width: 90px;
+        height: 120px;
     }
-}
-
-@media (max-width: 480px) {
-    .dashboard-container {
-        margin: 16px auto;
-        padding: 20px;
-        width: calc(100% - 16px);
+    
+    .professional.nurse-2 {
+        width: 80px;
+        height: 100px;
+    }
+    
+    .right-section {
+        padding: 1.5rem;
+        min-height: 70vh;
+    }
+    
+    .signin-content {
+        max-width: 100%;
     }
     
     .signin-header h1 {
         font-size: 1.75rem;
     }
     
-    .signin-header p {
-        font-size: 1rem;
+    .social-buttons {
+        flex-wrap: wrap;
+        gap: 0.75rem;
     }
 }
 
-/* Ensure content doesn't overlap with header */
-@media (min-width: 769px) {
-    .dashboard-container {
-        margin: 60px auto;
+@media (max-width: 480px) {
+    .left-section {
+        min-height: 25vh;
+        padding: 1rem;
+    }
+    
+    .right-section {
+        padding: 1rem;
+    }
+    
+    .signin-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .signin-form {
+        gap: 1rem;
+    }
+    
+    .form-group input {
+        padding: 0.75rem;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .signin-btn {
+        padding: 0.75rem 1rem;
+    }
+    
+    .social-btn {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.signin-content {
+    animation: fadeInUp 0.6s ease;
+}
+
+.professional {
+    animation: fadeInUp 0.6s ease;
+}
+
+.professional.doctor {
+    animation-delay: 0.1s;
+}
+
+.professional.nurse-1 {
+    animation-delay: 0.2s;
+}
+
+.professional.nurse-2 {
+    animation-delay: 0.3s;
+}
+
+/* Focus styles for accessibility */
+button:focus,
+input:focus,
+a:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

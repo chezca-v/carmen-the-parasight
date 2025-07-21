@@ -32,9 +32,92 @@ function sanitizeInput(input) {
         .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
         .replace(/[<>]/g, '') // Remove angle brackets
         .replace(/javascript:/gi, '') // Remove javascript: protocol
+        .replace(/vbscript:/gi, '') // Remove vbscript: protocol
+        .replace(/file:/gi, '') // Remove file: protocol
         .replace(/on\w+\s*=/gi, '') // Remove event handlers
         .replace(/data:/gi, '') // Remove data: protocol
+        .replace(/\{\{.*?\}\}/g, '') // Remove template injection patterns
+        .replace(/\$\{.*?\}/g, '') // Remove JS template literals
+        .replace(/<%.*?%>/g, '') // Remove server-side template patterns
+        .replace(/\[\[.*?\]\]/g, '') // Remove bracket injection patterns
         .trim();
+}
+
+/**
+ * Validate and sanitize URL input
+ */
+function validateUrl(url) {
+    if (!url || typeof url !== 'string') {
+        return { valid: false, error: 'URL is required' };
+    }
+    
+    const sanitized = sanitizeInput(url.trim());
+    
+    if (sanitized.length === 0) {
+        return { valid: false, error: 'URL cannot be empty' };
+    }
+    
+    if (sanitized.length > 2048) {
+        return { valid: false, error: 'URL is too long' };
+    }
+    
+    try {
+        const urlObj = new URL(sanitized);
+        // Only allow http and https protocols
+        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+            return { valid: false, error: 'Only HTTP and HTTPS URLs are allowed' };
+        }
+        return { valid: true, value: sanitized };
+    } catch {
+        return { valid: false, error: 'Please enter a valid URL' };
+    }
+}
+
+/**
+ * Validate filename for file uploads
+ */
+function validateFilename(filename) {
+    if (!filename || typeof filename !== 'string') {
+        return { valid: false, error: 'Filename is required' };
+    }
+    
+    const sanitized = filename.trim()
+        .replace(/[^a-zA-Z0-9\.\-\_]/g, '') // Only allow safe characters
+        .replace(/\.{2,}/g, '.') // Prevent directory traversal
+        .substring(0, 255);
+    
+    if (sanitized.length === 0) {
+        return { valid: false, error: 'Filename cannot be empty' };
+    }
+    
+    // Check for dangerous extensions
+    const dangerousExtensions = ['.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.js', '.jar', '.php', '.asp', '.jsp'];
+    const extension = sanitized.toLowerCase().substring(sanitized.lastIndexOf('.'));
+    
+    if (dangerousExtensions.includes(extension)) {
+        return { valid: false, error: 'This file type is not allowed' };
+    }
+    
+    return { valid: true, value: sanitized };
+}
+
+/**
+ * Sanitize HTML content (for rich text inputs)
+ */
+function sanitizeHtml(html) {
+    if (!html || typeof html !== 'string') return '';
+    
+    // Remove dangerous tags and attributes
+    return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '') // Remove iframe tags
+        .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '') // Remove object tags
+        .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '') // Remove embed tags
+        .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '') // Remove form tags
+        .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Remove event handlers
+        .replace(/javascript:/gi, '') // Remove javascript: protocol
+        .replace(/vbscript:/gi, '') // Remove vbscript: protocol
+        .replace(/data:/gi, ''); // Remove data: protocol
 }
 
 /**
@@ -343,13 +426,20 @@ function validatePatientRegistrationForm(formData) {
         { field: 'email', validator: validateEmail },
         { field: 'password', validator: validatePassword },
         { field: 'phone', validator: validatePhone },
-        { field: 'address', validator: validateAddress },
+        { field: 'address', validator: validateAddress, optional: true },
         { field: 'dateOfBirth', validator: validateDateOfBirth },
-        { field: 'bio', validator: validateBio }
+        { field: 'bio', validator: validateBio, optional: true }
     ];
     
-    validations.forEach(({ field, validator }) => {
+    validations.forEach(({ field, validator, optional }) => {
         const value = formData[field];
+        
+        // Skip validation for optional fields that are empty
+        if (optional && (!value || value.trim() === '')) {
+            sanitizedData[field] = '';
+            return;
+        }
+        
         const result = validator(value);
         
         if (!result.valid) {
@@ -370,6 +460,55 @@ function validatePatientRegistrationForm(formData) {
     if (!formData.terms) {
         errors.push('You must agree to the Terms of Service and Privacy Policy');
     }
+    
+    return {
+        valid: errors.length === 0,
+        errors,
+        sanitizedData
+    };
+}
+
+/**
+ * Validate simplified sign-up form (for new design)
+ */
+function validateSimplifiedSignUpForm(formData) {
+    const errors = [];
+    const sanitizedData = {};
+    
+    // Required fields for simplified form
+    const validations = [
+        { field: 'email', validator: validateEmail },
+        { field: 'password', validator: validatePassword },
+        { field: 'phone', validator: validatePhone },
+        { field: 'dateOfBirth', validator: validateDateOfBirth }
+    ];
+    
+    validations.forEach(({ field, validator }) => {
+        const value = formData[field];
+        const result = validator(value);
+        
+        if (!result.valid) {
+            errors.push(result.error);
+        } else {
+            sanitizedData[field] = result.value;
+        }
+    });
+    
+    // Auto-generate names from email if provided
+    if (sanitizedData.email) {
+        const emailUsername = sanitizedData.email.split('@')[0];
+        const nameParts = emailUsername.split(/[._-]/);
+        
+        const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        
+        sanitizedData.firstName = nameParts[0] ? capitalize(nameParts[0]) : 'User';
+        sanitizedData.lastName = nameParts[1] ? capitalize(nameParts[1]) : '';
+    }
+    
+    // Set defaults for optional fields
+    sanitizedData.address = '';
+    sanitizedData.bio = '';
+    sanitizedData.terms = true; // Auto-accepted in simplified form
     
     return {
         valid: errors.length === 0,
@@ -467,6 +606,7 @@ const rateLimiter = new RateLimiter();
 export {
     escapeHtml,
     sanitizeInput,
+    sanitizeHtml,
     validateEmail,
     validatePassword,
     validateName,
@@ -474,11 +614,14 @@ export {
     validateDateOfBirth,
     validateAddress,
     validateBio,
+    validateUrl,
+    validateFilename,
     validateMedicalCondition,
     validateCategory,
     validateDocumentName,
     validatePatientRegistrationForm,
     validateProfileUpdateData,
+    validateSimplifiedSignUpForm,
     RateLimiter,
     rateLimiter
 };

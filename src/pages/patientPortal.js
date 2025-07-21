@@ -1,440 +1,1414 @@
-// 🚀 FLAWLESS Patient Portal JavaScript - Ultimate Version
-console.log('🎯 Patient Portal JavaScript loading...');
+// Patient Portal JavaScript - Healthcare Patient Dashboard
 
-// Advanced Performance Observer
-if ('PerformanceObserver' in window) {
-    const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-            if (entry.entryType === 'measure') {
-                console.log(`⚡ ${entry.name}: ${entry.duration.toFixed(2)}ms`);
-            }
-        }
-    });
-    observer.observe({ entryTypes: ['measure'] });
-}
+// Import required services
+import authService from '../services/auth-service.js';
+import { getCurrentPatientData, getPatientData } from '../services/firestoredb.js';
 
-// 🎯 FLAWLESS Navigation and UI Management
-class PatientPortalUI {
+class PatientPortal {
     constructor() {
-        this.currentSection = 'Dashboard';
+        this.currentSection = 'dashboard';
         this.currentMonth = new Date().getMonth();
         this.currentYear = new Date().getFullYear();
+        this.calendarEventListeners = new Map(); // Track calendar event listeners
+        this.patientData = null;
         this.isLoading = false;
-        this.cache = new Map();
-        this.observers = [];
-        this.touchStartX = 0;
-        this.touchStartY = 0;
-        
-        // Accessibility features
-        this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        this.highContrast = window.matchMedia('(prefers-contrast: high)').matches;
-        
-        // Performance tracking
-        performance.mark('portal-start');
         
         this.init();
     }
 
     async init() {
         try {
-            performance.mark('init-start');
+            // Close any lingering authentication popups
+            this.closeAuthPopups();
             
-            await this.setupAccessibility();
-            await this.setupNavigation();
-            await this.setupCalendar();
-            await this.setupProfile();
-            await this.setupHelp();
-            await this.setupMobileMenu();
-            await this.setupNotifications();
-            await this.setupAdvancedFeatures();
+            // Check for any pending errors from sign-in process
+            this.checkPendingErrors();
             
-            performance.mark('init-end');
-            performance.measure('initialization', 'init-start', 'init-end');
-            
-            console.log('✅ Patient Portal initialized successfully');
+            await this.loadUserData();
+            this.setupEventListeners();
+            this.setupCalendar();
+            this.setupFormHandlers();
+            this.setupTabHandlers();
+            this.setupModalHandlers();
         } catch (error) {
-            console.error('❌ Initialization failed:', error);
+            console.error('Initialization failed:', error);
             this.handleError(error);
         }
     }
 
-    // 🎯 FLAWLESS Accessibility Setup
-    async setupAccessibility() {
-        // Add skip link
-        const skipLink = document.createElement('a');
-        skipLink.href = '#main-content';
-        skipLink.className = 'skip-link';
-        skipLink.textContent = 'Skip to main content';
-        document.body.insertBefore(skipLink, document.body.firstChild);
-
-        // Add main content ID
-        const mainContent = document.querySelector('.main-container');
-        if (mainContent) {
-            mainContent.id = 'main-content';
-            mainContent.setAttribute('tabindex', '-1');
-        }
-
-        // Setup keyboard navigation
-        this.setupKeyboardNavigation();
-        
-        // Setup ARIA labels
-        this.setupAriaLabels();
-        
-        // Setup focus management
-        this.setupFocusManagement();
-    }
-
-    setupKeyboardNavigation() {
-        document.addEventListener('keydown', (e) => {
-            // ESC key handling
-            if (e.key === 'Escape') {
-                this.handleEscapeKey();
+    closeAuthPopups() {
+        try {
+            console.log('🔧 Checking for open auth popups...');
+            
+            // Close any Firebase auth popups that might still be open
+            // This handles cases where the popup doesn't close automatically
+            if (window.opener) {
+                // If this window was opened as a popup, close it
+                console.log('Closing auth popup window (this window is a popup)');
+                window.close();
+                return;
             }
             
-            // Tab navigation enhancement
-            if (e.key === 'Tab') {
-                this.handleTabNavigation(e);
+            // Try to close any child popup windows
+            if (typeof window.authPopup !== 'undefined' && window.authPopup && !window.authPopup.closed) {
+                console.log('Closing lingering auth popup (window.authPopup)');
+                window.authPopup.close();
+                window.authPopup = null;
             }
             
-            // Arrow key navigation for calendar
-            if (e.target.classList.contains('calendar-day')) {
-                this.handleCalendarArrowKeys(e);
+            // Close auth service popup if available
+            if (authService && typeof authService.closeAuthPopup === 'function') {
+                authService.closeAuthPopup();
             }
-        });
-    }
-
-    setupAriaLabels() {
-        // Add ARIA labels to interactive elements
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach((link, index) => {
-            const sectionName = link.querySelector('span').textContent.trim();
-            link.setAttribute('aria-label', `Navigate to ${sectionName}`);
-            link.setAttribute('role', 'button');
-        });
-
-        // Calendar accessibility
-        const calendarDays = document.querySelectorAll('.calendar-day');
-        calendarDays.forEach(day => {
-            if (!day.classList.contains('empty')) {
-                day.setAttribute('role', 'button');
-                day.setAttribute('tabindex', '0');
+            
+            // Send message to close any auth popups (in case they're listening)
+            try {
+                if (window.postMessage) {
+                    window.postMessage({ type: 'CLOSE_AUTH_POPUP' }, window.location.origin);
+                }
+            } catch (e) {
+                // Ignore postMessage errors
             }
-        });
-    }
-
-    setupFocusManagement() {
-        // Enhanced focus visible
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                document.body.classList.add('keyboard-navigation');
+            
+            // Clear any auth-related flags
+            if (window.isProcessingGoogleAuth) {
+                window.isProcessingGoogleAuth = false;
             }
-        });
-
-        document.addEventListener('mousedown', () => {
-            document.body.classList.remove('keyboard-navigation');
-        });
-    }
-
-    handleEscapeKey() {
-        // Close modals
-        const modal = document.getElementById('editProfileModal');
-        if (modal && modal.style.display === 'block') {
-            modal.style.display = 'none';
-        }
-
-        // Close mobile menu
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar && sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open');
-            this.toggleSidebarOverlay();
+            
+            // More aggressive popup cleanup - check for any popups in a few seconds
+            setTimeout(() => {
+                this.aggressivePopupCleanup();
+            }, 2000);
+            
+            console.log('✅ Auth popup cleanup completed');
+        } catch (error) {
+            console.warn('⚠️ Error during auth popup cleanup:', error);
         }
     }
 
-    // 🚀 FLAWLESS Navigation System
-    async setupNavigation() {
-        const navLinks = document.querySelectorAll('.nav-link');
-        const logoutBtn = document.getElementById('logoutBtn');
-
-        navLinks.forEach((link, index) => {
-            // Enhanced click handling with debouncing
-            link.addEventListener('click', this.debounce((e) => {
-                e.preventDefault();
-                this.handleNavigation(link, index);
-            }, 300));
-
-            // Keyboard support
-            link.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    this.handleNavigation(link, index);
+    aggressivePopupCleanup() {
+        try {
+            // Check all open windows and close ones that look like auth popups
+            if (typeof window.authPopup !== 'undefined' && window.authPopup && !window.authPopup.closed) {
+                console.log('🚨 Aggressively closing auth popup');
+                window.authPopup.close();
+                window.authPopup = null;
+            }
+            
+            // Look for any global popup references
+            const popupVars = ['authPopup', 'googleAuthPopup', 'firebasePopup', '_popupWindow'];
+            popupVars.forEach(varName => {
+                if (window[varName] && typeof window[varName].close === 'function' && !window[varName].closed) {
+                    console.log(`🚨 Closing popup: ${varName}`);
+                    window[varName].close();
+                    window[varName] = null;
                 }
             });
-
-            // Enhanced hover effects
-            if (!this.reducedMotion) {
-                link.addEventListener('mouseenter', () => {
-                    link.style.transform = 'translateX(8px) scale(1.02)';
-                });
-
-                link.addEventListener('mouseleave', () => {
-                    if (!link.closest('.nav-item').classList.contains('active')) {
-                        link.style.transform = '';
-                    }
-                });
-            }
-        });
-
-        // Enhanced logout functionality
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await this.handleLogout();
-            });
+            
+            console.log('✅ Aggressive popup cleanup completed');
+        } catch (error) {
+            console.warn('⚠️ Error during aggressive popup cleanup:', error);
         }
     }
 
-    async handleNavigation(link, index) {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
+    checkPendingErrors() {
+        // Check for Firestore rules error
+        const firestoreError = sessionStorage.getItem('firestore_rules_error');
+        if (firestoreError) {
+            console.warn('⚠️ Firestore rules issue detected:', firestoreError);
+            sessionStorage.removeItem('firestore_rules_error');
+            
+            // Show user-friendly warning
+            this.showNotification(
+                'Your profile information may not be fully loaded due to configuration issues. Please contact support if you experience any problems.',
+                'warning'
+            );
+        }
         
-        try {
-            // Visual feedback
-            link.classList.add('micro-bounce');
-            setTimeout(() => link.classList.remove('micro-bounce'), 600);
+        // Check for patient document creation error
+        const patientDocError = sessionStorage.getItem('pending_patient_doc_error');
+        if (patientDocError) {
+            console.warn('⚠️ Patient document creation issue:', patientDocError);
+            sessionStorage.removeItem('pending_patient_doc_error');
+            
+            // This is handled gracefully in loadUserData, so just log it
+        }
+    }
 
-            // Remove active class from all nav items
+    async loadUserData() {
+        try {
+            console.log('Loading user data...');
+            this.showLoading('Loading patient information...');
+            
+            // Wait for auth state to settle
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Get current user
+            const user = authService.getCurrentUser();
+            
+            if (!user) {
+                console.log('No user found, auth guard will handle redirect');
+                return;
+            }
+
+            console.log('User authenticated:', user.email);
+
+            // Load patient data from Firestore
+            let patientData = null;
+            try {
+                console.log('Loading patient data from Firestore...');
+                patientData = await getPatientData(user.uid);
+                
+                // If no patient data exists, create it
+                if (!patientData) {
+                    console.log('No patient data found, creating new patient document...');
+                    try {
+                        const { createPatientDocument } = await import('../services/firestoredb.js');
+                        await createPatientDocument(user, {
+                            personalInfo: {
+                                firstName: user.displayName ? user.displayName.split(' ')[0] : '',
+                                lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
+                                fullName: user.displayName || user.email.split('@')[0]
+                            }
+                        });
+                        
+                        patientData = await getPatientData(user.uid);
+                        console.log('Patient document created successfully');
+                    } catch (createError) {
+                        console.warn('Could not create patient document:', createError);
+                    }
+                }
+            } catch (error) {
+                console.warn('Could not load patient data from Firestore:', error);
+            }
+
+            this.displayUserInfo(user, patientData);
+            this.hideLoading();
+            
+        } catch (error) {
+            console.error('Error loading user data:', error);
+            this.hideLoading();
+            
+            // Fallback to basic user info
+            const user = authService.getCurrentUser();
+            if (user) {
+                this.displayUserInfo(user, null);
+            } else {
+                this.displayFallbackUserInfo();
+            }
+        }
+    }
+
+    displayUserInfo(user, patientData) {
+        try {
+            this.patientData = patientData; // Store patient data for later use
+
+            // Get user's name
+            let firstName = '';
+            let lastName = '';
+            let fullName = '';
+
+            if (patientData && patientData.personalInfo) {
+                firstName = patientData.personalInfo.firstName || '';
+                lastName = patientData.personalInfo.lastName || '';
+                fullName = patientData.personalInfo.fullName || '';
+            }
+
+            // Fallback to Auth displayName
+            if (!fullName && user.displayName) {
+                const nameParts = user.displayName.split(' ');
+                firstName = nameParts[0] || '';
+                lastName = nameParts.slice(1).join(' ') || '';
+                fullName = user.displayName;
+            }
+
+            // Final fallback to email
+            if (!fullName) {
+                fullName = user.email.split('@')[0];
+                firstName = fullName;
+            }
+
+            // Update UI elements
+            this.updateUserElements(firstName, lastName, fullName, user.email, patientData);
+
+            // Check if profile is complete and show modal if not
+            if (patientData && patientData.profileComplete === false) {
+                this.showNotification('Welcome! Please complete your profile to continue.', 'info');
+                // Use a short delay to ensure the UI is ready before showing the modal
+                setTimeout(() => this.openEditProfileModal(), 500);
+            }
+
+        } catch (error) {
+            console.error('Error displaying user info:', error);
+            this.displayFallbackUserInfo();
+        }
+    }
+
+    updateUserElements(firstName, lastName, fullName, email, patientData) {
+        // Update patient name in header
+        const patientNameElement = document.getElementById('patientName');
+        if (patientNameElement) {
+            patientNameElement.textContent = firstName;
+        }
+
+        const patientDisplayNameElement = document.getElementById('patientDisplayName');
+        if (patientDisplayNameElement) {
+            patientDisplayNameElement.textContent = firstName;
+        }
+
+        // Update profile information
+        const elements = {
+            fullName: fullName,
+            emailAddress: email,
+            phoneNumber: patientData?.personalInfo?.phone || 'Not provided',
+            dateOfBirth: patientData?.personalInfo?.dateOfBirth || 'Not provided',
+            bio: patientData?.personalInfo?.bio || 'Patient'
+        };
+
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) {
+                    element.textContent = value;
+            }
+        });
+
+        // Calculate and display age if DOB is available
+        if (patientData?.personalInfo?.dateOfBirth) {
+            const age = this.calculateAge(patientData.personalInfo.dateOfBirth);
+            const ageElement = document.getElementById('age');
+            if (ageElement) {
+                ageElement.textContent = age;
+            }
+        }
+
+        // Update profile name with gender tag
+        const profileNameElement = document.querySelector('.profile-name');
+        if (profileNameElement) {
+            const genderTag = profileNameElement.querySelector('.gender-tag');
+            const genderText = genderTag ? genderTag.outerHTML : '(Patient)';
+            profileNameElement.innerHTML = `${fullName} <span class="gender-tag">${genderText}</span>`;
+        }
+        
+        // Update user avatar initials
+        const userAvatarElements = document.querySelectorAll('.user-avatar span, .profile-avatar-placeholder span');
+        userAvatarElements.forEach(element => {
+            const initials = this.getInitials(firstName, lastName, fullName);
+            element.textContent = initials;
+        });
+    }
+
+    getInitials(firstName, lastName, fullName) {
+        if (firstName && lastName) {
+            return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+        } else if (fullName) {
+            const nameParts = fullName.split(' ');
+            if (nameParts.length >= 2) {
+                return (nameParts[0].charAt(0) + nameParts[1].charAt(0)).toUpperCase();
+                    } else {
+                return fullName.charAt(0).toUpperCase();
+            }
+        }
+        return 'U';
+    }
+
+    calculateAge(dateOfBirth) {
+        const today = new Date();
+        const birthDate = new Date(dateOfBirth);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+
+        return age;
+    }
+
+    displayFallbackUserInfo() {
+        const patientNameElement = document.getElementById('patientName');
+        if (patientNameElement) {
+            patientNameElement.textContent = 'Patient';
+        }
+
+        const patientDisplayNameElement = document.getElementById('patientDisplayName');
+        if (patientDisplayNameElement) {
+            patientDisplayNameElement.textContent = 'Patient';
+        }
+    }
+
+    setupEventListeners() {
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                
+                if (section === 'logout') {
+                    this.handleLogout();
+                } else if (section) {
+                    this.switchSection(section);
+                }
+            });
+        });
+
+        // Calendar navigation
+        const prevBtn = document.getElementById('prevMonth');
+        const nextBtn = document.getElementById('nextMonth');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => this.previousMonth());
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => this.nextMonth());
+        }
+
+        // Action buttons in quick actions
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const actionType = this.getActionType(e.currentTarget);
+                this.handleAction(actionType, e.currentTarget);
+            });
+        });
+
+        // Action buttons in other sections (like appointments list)
+        document.querySelectorAll('.btn-primary, .btn-outline').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const actionType = this.getActionType(e.currentTarget);
+                if (actionType !== 'unknown') {
+                    this.handleAction(actionType, e.currentTarget);
+                }
+            });
+        });
+
+        // General buttons
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.handleButtonClick(e.target);
+            });
+        });
+
+        const uploadDocumentBtn = document.getElementById('uploadDocumentBtn');
+        if (uploadDocumentBtn) {
+            uploadDocumentBtn.addEventListener('click', () => this.handleUploadDocument());
+        }
+
+        const documentUploadInput = document.getElementById('documentUploadInput');
+        if (documentUploadInput) {
+            documentUploadInput.addEventListener('change', (e) => this.handleFileSelected(e.target.files));
+        }
+
+        // FAQ interactions
+        document.querySelectorAll('.faq-question').forEach(question => {
+            question.addEventListener('click', () => {
+                const faqItem = question.closest('.faq-item');
+                if (faqItem) {
+                    faqItem.classList.toggle('expanded');
+                }
+            });
+        });
+
+        // Help categories
+        document.querySelectorAll('.help-category').forEach(category => {
+            category.addEventListener('click', () => {
+                const categoryName = category.querySelector('h3');
+                if (categoryName) {
+                    this.showNotification(`Opening help for: ${categoryName.textContent}`);
+                }
+            });
+        });
+
+        // Logout button
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.handleLogout();
+            });
+        }
+        
+        // Global modal handler via event delegation
+        document.body.addEventListener('click', (e) => {
+            const target = e.target;
+            const closeButton = target.closest('[data-action="close"]');
+
+            if (closeButton) {
+                e.preventDefault();
+                const modalToClose = closeButton.closest('.modal');
+                if (modalToClose) {
+                    this.closeModal(modalToClose);
+                }
+                return;
+            }
+
+            if (target.classList.contains('modal')) {
+                this.closeModal(target);
+            }
+        });
+    }
+
+    switchSection(sectionName) {
+        if (sectionName === this.currentSection) return;
+
+        // Hide current section
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+        });
+
+        // Show new section
+        const newSection = document.getElementById(`${sectionName}-section`);
+        if (newSection) {
+            newSection.classList.add('active');
+        }
+
+        // Update navigation
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
             
-            // Add active class to clicked item
-            const navItem = link.closest('.nav-item');
-            if (navItem) {
-                navItem.classList.add('active');
-            }
-            
-            // Get section name and navigate
-            const sectionName = link.querySelector('span').textContent.trim();
-            await this.navigateToSection(sectionName);
-            
-            // Announce to screen readers
-            this.announceToScreenReader(`Navigated to ${sectionName} section`);
-            
-        } catch (error) {
-            console.error('Navigation error:', error);
-            this.handleError(error);
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    async handleLogout() {
-        const result = await this.showConfirmDialog(
-            'Logout Confirmation',
-            'Are you sure you want to logout?',
-            'Logout',
-            'Cancel'
-        );
-
-        if (result) {
-            // Show loading state
-            this.showLoading('Logging out...');
-            
-            // Simulate logout process
-            await this.delay(1000);
-            
-            // Clear cache and session data
-            this.cache.clear();
-            localStorage.removeItem('patient-portal-cache');
-            
-            window.location.href = '../index.html';
-        }
-    }
-
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
-    async navigateToSection(sectionName) {
-        performance.mark(`navigate-${sectionName}-start`);
-        
-        // Check cache first
-        if (this.cache.has(sectionName)) {
-            console.log(`📦 Loading ${sectionName} from cache`);
-        }
-
-        // Show loading if needed
-        if (['Calendar', 'Profile'].includes(sectionName)) {
-            this.showSectionLoading(sectionName);
-        }
-
-        // Hide all sections with animation
-        const allSections = document.querySelectorAll('.content-section');
-        allSections.forEach(section => {
-            section.classList.add('content-loading');
-            section.classList.remove('active');
-        });
-
-        // Update page title with animation
-        const pageTitle = document.getElementById('pageTitle');
-        if (pageTitle) {
-            pageTitle.style.opacity = '0';
-            await this.delay(150);
-            pageTitle.textContent = sectionName;
-            pageTitle.style.opacity = '1';
-        }
-
-        // Determine target section
-        let targetId;
-        switch(sectionName) {
-            case 'Dashboard':
-                targetId = 'dashboard-content';
-                break;
-            case 'Calendar':
-                targetId = 'calendar-content';
-                await this.initializeCalendar();
-                break;
-            case 'Profile':
-                targetId = 'profile-content';
-                await this.initializeProfile();
-                break;
-            case 'Help':
-                targetId = 'help-content';
-                await this.initializeHelp();
-                break;
-            default:
-                targetId = 'dashboard-content';
-        }
-
-        // Show target section with enhanced animation
-        await this.delay(100);
-        const targetSection = document.getElementById(targetId);
-        if (targetSection) {
-            targetSection.classList.remove('content-loading');
-            targetSection.classList.add('active', 'page-transition');
-            
-            // Focus management for accessibility
-            targetSection.focus();
-            
-            // Remove transition class after animation
-            setTimeout(() => {
-                targetSection.classList.remove('page-transition');
-            }, 500);
+        const navLink = document.querySelector(`[data-section="${sectionName}"]`);
+        if (navLink && navLink.parentNode) {
+            navLink.parentNode.classList.add('active');
         }
 
         this.currentSection = sectionName;
-        
-        // Update URL without page reload
-        if (history.pushState) {
-            const url = new URL(window.location);
-            url.searchParams.set('section', sectionName.toLowerCase());
-            history.pushState({ section: sectionName }, '', url);
-        }
-        
-        performance.mark(`navigate-${sectionName}-end`);
-        performance.measure(`navigate-${sectionName}`, `navigate-${sectionName}-start`, `navigate-${sectionName}-end`);
+
+        // Load section-specific data
+        this.loadSectionData(sectionName);
     }
 
-    // 🎯 FLAWLESS Utility Functions
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    setupTabHandlers() {
+        // Update tab click handlers
+        document.querySelectorAll('.tab-button').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const tabContainer = e.target.closest('.profile-tabs');
+                if (!tabContainer) return;
 
-    showSectionLoading(sectionName) {
-        const loadingElement = document.createElement('div');
-        loadingElement.className = 'loading-spinner';
-        loadingElement.id = `loading-${sectionName}`;
-        
-        const targetSection = document.getElementById(`${sectionName.toLowerCase()}-content`);
-        if (targetSection) {
-            targetSection.appendChild(loadingElement);
-            setTimeout(() => {
-                loadingElement.remove();
-            }, 1000);
-        }
-    }
+                // Remove active class from all tabs
+                tabContainer.querySelectorAll('.tab-button').forEach(t => {
+                    t.classList.remove('active');
+                });
 
-    announceToScreenReader(message) {
-        const announcement = document.createElement('div');
-        announcement.setAttribute('aria-live', 'polite');
-        announcement.setAttribute('aria-atomic', 'true');
-        announcement.style.position = 'absolute';
-        announcement.style.left = '-10000px';
-        announcement.style.width = '1px';
-        announcement.style.height = '1px';
-        announcement.style.overflow = 'hidden';
-        announcement.textContent = message;
-        
-        document.body.appendChild(announcement);
-        setTimeout(() => {
-            document.body.removeChild(announcement);
-        }, 1000);
-    }
+                // Add active class to clicked tab
+                e.target.classList.add('active');
 
-    showConfirmDialog(title, message, confirmText, cancelText) {
-        return new Promise((resolve) => {
-            // Create custom modal dialog for better UX
-            const modal = document.createElement('div');
-            modal.className = 'modal confirm-modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3>${title}</h3>
-                    </div>
-                    <div class="modal-body">
-                        <p>${message}</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn-secondary cancel-btn">${cancelText}</button>
-                        <button class="btn-primary confirm-btn">${confirmText}</button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            modal.style.display = 'block';
-            
-            // Focus management
-            const confirmBtn = modal.querySelector('.confirm-btn');
-            const cancelBtn = modal.querySelector('.cancel-btn');
-            confirmBtn.focus();
-            
-            // Event listeners
-            confirmBtn.addEventListener('click', () => {
-                modal.remove();
-                resolve(true);
-            });
-            
-            cancelBtn.addEventListener('click', () => {
-                modal.remove();
-                resolve(false);
-            });
-            
-            // Keyboard support
-            modal.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    modal.remove();
-                    resolve(false);
+                // Hide all tab content
+                tabContainer.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                // Show selected tab content
+                const tabId = e.target.getAttribute('data-tab');
+                const selectedContent = tabContainer.querySelector(`#${tabId}-tab`);
+                if (selectedContent) {
+                    selectedContent.classList.add('active');
                 }
+
+                // Load tab-specific data if needed
+                this.loadTabContent(tabId);
             });
         });
+
+        // Setup document filters
+        document.querySelectorAll('.document-filters .filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active class from all filter buttons
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                e.target.classList.add('active');
+
+                const filter = e.target.getAttribute('data-filter');
+                this.filterDocuments(filter);
+            });
+        });
+
+        // Setup consultation filters
+        const consultationFilter = document.getElementById('consultationFilter');
+        if (consultationFilter) {
+            consultationFilter.addEventListener('change', (e) => {
+                this.filterConsultations(e.target.value);
+            });
+        }
+
+        const dateFilter = document.getElementById('dateFilter');
+        if (dateFilter) {
+            dateFilter.addEventListener('change', (e) => {
+                this.filterConsultationsByDate(e.target.value);
+            });
+        }
+    }
+
+    loadTabContent(tabId) {
+        switch (tabId) {
+            case 'consultation-history':
+                this.loadConsultationHistory();
+                break;
+            case 'patient-documents':
+                this.loadPatientDocuments();
+                break;
+            case 'general':
+                this.loadGeneralProfile();
+                break;
+        }
+    }
+
+    filterDocuments(filter) {
+        const documents = document.querySelectorAll('.document-item');
+        documents.forEach(doc => {
+            if (filter === 'all' || doc.getAttribute('data-type') === filter) {
+                doc.style.display = 'flex';
+            } else {
+                doc.style.display = 'none';
+            }
+        });
+    }
+
+    filterConsultations(status) {
+        const consultations = document.querySelectorAll('.consultation-item');
+        consultations.forEach(consultation => {
+            const statusElement = consultation.querySelector('.status');
+            if (!statusElement) return;
+
+            const consultationStatus = statusElement.textContent.toLowerCase();
+            if (status === 'all' || consultationStatus === status) {
+                consultation.style.display = 'flex';
+            } else {
+                consultation.style.display = 'none';
+            }
+        });
+    }
+
+    filterConsultationsByDate(date) {
+        if (!date) return;
+
+        const consultations = document.querySelectorAll('.consultation-item');
+        const selectedDate = new Date(date);
+        
+        consultations.forEach(consultation => {
+            const dateElement = consultation.querySelector('.consultation-date .date');
+            if (!dateElement) return;
+
+            const consultationDate = new Date(dateElement.textContent);
+            if (consultationDate.toDateString() === selectedDate.toDateString()) {
+                consultation.style.display = 'flex';
+            } else {
+                consultation.style.display = 'none';
+            }
+        });
+    }
+
+    loadConsultationHistory() {
+        // In a real application, this would fetch consultation data from the backend
+        console.log('Loading consultation history...');
+    }
+
+    loadPatientDocuments() {
+        // In a real application, this would fetch document data from the backend
+        console.log('Loading patient documents...');
+    }
+
+    loadGeneralProfile() {
+        // In a real application, this would fetch profile data from the backend
+        console.log('Loading general profile...');
+    }
+
+    setupCalendar() {
+        this.updateCalendarDisplay();
+    }
+
+    updateCalendarDisplay() {
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+
+        const monthDisplay = document.querySelector('.current-month');
+        if (monthDisplay) {
+            monthDisplay.textContent = `${monthNames[this.currentMonth]} ${this.currentYear}`;
+        }
+
+        this.generateCalendarDays();
+    }
+
+    generateCalendarDays() {
+        const calendarGrid = document.getElementById('calendarDays');
+        if (!calendarGrid) return;
+
+        this.cleanupCalendarEventListeners();
+        calendarGrid.innerHTML = '';
+
+        const firstDay = new Date(this.currentYear, this.currentMonth, 1);
+        const startDate = new Date(firstDay);
+        
+        // Adjust to start from Sunday
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+        // Generate 42 days (6 weeks)
+        for (let i = 0; i < 42; i++) {
+            const currentDate = new Date(startDate);
+            currentDate.setDate(startDate.getDate() + i);
+            
+            const dayElement = this.createCalendarDay(currentDate);
+            calendarGrid.appendChild(dayElement);
+        }
+    }
+
+    createCalendarDay(date) {
+        const dayElement = document.createElement('div');
+        dayElement.classList.add('calendar-day');
+        
+        const isCurrentMonth = date.getMonth() === this.currentMonth;
+        const isToday = this.isToday(date);
+        
+        if (!isCurrentMonth) {
+            dayElement.classList.add('prev-month');
+        }
+        
+        if (isToday) {
+            dayElement.classList.add('today');
+        }
+
+        const dayNumber = document.createElement('span');
+        dayNumber.classList.add('day-number');
+        dayNumber.textContent = date.getDate();
+
+        // Add appointment indicators for sample dates
+        if (isCurrentMonth && (date.getDate() === 22 || date.getDate() === 25)) {
+            const indicator = document.createElement('div');
+            indicator.classList.add('appointment-indicator');
+            dayElement.appendChild(indicator);
+        }
+
+        dayElement.appendChild(dayNumber);
+
+        const clickHandler = () => {
+            this.selectCalendarDay(date, dayElement);
+        };
+        
+        dayElement.addEventListener('click', clickHandler);
+        this.calendarEventListeners.set(dayElement, clickHandler);
+
+        return dayElement;
+    }
+
+    cleanupCalendarEventListeners() {
+        this.calendarEventListeners.forEach((handler, element) => {
+            element.removeEventListener('click', handler);
+        });
+        this.calendarEventListeners.clear();
+    }
+
+    selectCalendarDay(date, element) {
+        document.querySelectorAll('.calendar-day').forEach(day => {
+            day.classList.remove('selected');
+        });
+
+        element.classList.add('selected');
+        this.showDayDetails(date);
+    }
+
+    showDayDetails(date) {
+        console.log('Selected date:', date);
+        this.showNotification(`Selected: ${date.toDateString()}`);
+    }
+
+    previousMonth() {
+                this.currentMonth--;
+                if (this.currentMonth < 0) {
+                    this.currentMonth = 11;
+                    this.currentYear--;
+                }
+        this.updateCalendarDisplay();
+        }
+
+    nextMonth() {
+                this.currentMonth++;
+                if (this.currentMonth > 11) {
+                    this.currentMonth = 0;
+                    this.currentYear++;
+                }
+        this.updateCalendarDisplay();
+    }
+
+    isToday(date) {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    }
+
+    getActionType(element) {
+        // Get the text from the button or its child span if it exists
+        const buttonText = (element.querySelector('span')?.textContent || element.textContent).trim().toLowerCase();
+        // Get the icon class if it exists
+        const iconClass = element.querySelector('i')?.className.toLowerCase() || '';
+
+
+        console.log('Button text:', buttonText);
+        console.log('Icon class:', iconClass);
+
+        // Check both button text and icon class
+        if (buttonText.includes('book appointment') || buttonText.includes('book follow-up')) {
+            return 'book-appointment';
+        } else if (buttonText.includes('video consultation') || iconClass.includes('video')) {
+            return 'join-video';
+        } else if (buttonText.includes('refill prescription') || buttonText.includes('refill')) {
+            return 'refill-prescription';
+        } else if (buttonText.includes('download records')) {
+            return 'download-records';
+        } else if (buttonText.includes('download') || iconClass.includes('download')) {
+            return 'download-document';
+        } else if (buttonText.includes('view report')) {
+            return 'view-report';
+        } else if (buttonText.includes('view') || iconClass.includes('eye')) {
+            return 'view-document';
+        }
+        
+        console.log('No action type matched');
+        return 'unknown';
+    }
+
+    handleAction(actionType, element) {
+        console.log('Action triggered:', actionType);
+        
+        switch (actionType) {
+            case 'book-appointment':
+                console.log('Opening book appointment modal');
+                this.openModal('bookAppointmentModal');
+                break;
+            case 'join-video':
+                console.log('Opening video consultation modal');
+                this.openModal('videoConsultationModal');
+                break;
+            case 'refill-prescription':
+                console.log('Opening prescription refill modal');
+                this.openModal('prescriptionRefillModal');
+                break;
+            case 'download-records':
+                console.log('Opening download records modal');
+                this.openModal('downloadRecordsModal');
+                break;
+            case 'view-report': {
+                const reportTitle = element.closest('.consultation-item')?.querySelector('h4')?.textContent;
+                this.showNotification(`Opening report for ${reportTitle || 'consultation'}...`);
+                // In a real app, you would fetch and display the report
+                break;
+            }
+            case 'download-document': {
+                const docTitle = element.closest('.document-item')?.querySelector('h4')?.textContent;
+                this.showNotification(`Downloading ${docTitle || 'document'}...`);
+                // In a real app, you would initiate a file download
+                break;
+            }
+            case 'view-document': {
+                const docTitle = element.closest('.document-item')?.querySelector('h4')?.textContent;
+                this.showNotification(`Viewing ${docTitle || 'document'}...`);
+                // In a real app, you would open the document in a viewer or new tab
+                break;
+            }
+            default:
+                console.log('Unknown action type:', actionType);
+                this.showNotification('Action not recognized');
+        }
+    }
+
+    setupModalHandlers() {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            console.log('Setting up handlers for modal:', modal.id);
+            
+            // Handle all close buttons (both X and Cancel)
+            const closeButtons = modal.querySelectorAll('[data-action="close"]');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Close button clicked');
+                    this.closeModal(modal);
+                });
+            });
+
+            // Click outside modal to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    console.log('Clicked outside modal');
+                    this.closeModal(modal);
+                }
+            });
+
+            // Setup form submission handlers
+            switch (modal.id) {
+                case 'bookAppointmentModal':
+                    console.log('Setting up appointment form handlers');
+                    this.setupAppointmentForm(modal);
+                    break;
+                case 'videoConsultationModal':
+                    console.log('Setting up video consultation handlers');
+                    this.setupVideoConsultation(modal);
+                    break;
+                case 'prescriptionRefillModal':
+                    console.log('Setting up prescription refill handlers');
+                    this.setupPrescriptionRefill(modal);
+                    break;
+                case 'downloadRecordsModal':
+                    console.log('Setting up download records handlers');
+                    this.setupDownloadRecords(modal);
+                    break;
+            }
+        });
+    }
+
+    closeModal(modalElement) {
+        if (modalElement) {
+            modalElement.style.display = 'none';
+        }
+    }
+
+    openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'flex';
+            // Setup form-specific logic if any
+            this.setupFormHandlersForModal(modal);
+        }
+    }
+
+    setupAppointmentForm(modal) {
+        const saveBtn = modal.querySelector('#saveAppointment');
+        const form = modal.querySelector('#appointmentForm');
+
+        if (saveBtn && form) {
+            saveBtn.onclick = async (e) => {
+                e.preventDefault();
+                if (form.checkValidity()) {
+                    this.showLoading('Booking appointment...');
+                    
+                    // Simulate API call
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    this.hideLoading();
+                    this.showNotification('Appointment booked successfully!', 'success');
+                    this.closeModal(modal);
+                } else {
+                    this.showNotification('Please fill in all required fields', 'error');
+                }
+            };
+        }
+    }
+
+    setupVideoConsultation(modal) {
+        const startBtn = modal.querySelector('#startConsultation');
+        if (startBtn) {
+            startBtn.onclick = async () => {
+                this.showLoading('Joining consultation...');
+                
+                // Simulate API call
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                this.hideLoading();
+                this.showNotification('Joining video consultation...', 'success');
+                this.closeModal(modal);
+                
+                // Here you would typically redirect to the video consultation page
+                // window.location.href = '/video-consultation';
+            };
+        }
+    }
+
+    setupPrescriptionRefill(modal) {
+        const submitBtn = modal.querySelector('#submitRefill');
+        const form = modal.querySelector('#refillForm');
+
+        if (submitBtn && form) {
+            submitBtn.onclick = async (e) => {
+                e.preventDefault();
+                if (form.checkValidity()) {
+                    this.showLoading('Processing refill request...');
+                    
+                    // Simulate API call
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    this.hideLoading();
+                    this.showNotification('Prescription refill request submitted!', 'success');
+                    this.closeModal(modal);
+                } else {
+                    this.showNotification('Please fill in all required fields', 'error');
+                }
+            };
+        }
+    }
+
+    setupDownloadRecords(modal) {
+        const downloadBtn = modal.querySelector('#startDownload');
+        if (downloadBtn) {
+            downloadBtn.onclick = async () => {
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+                if (checkboxes.length === 0) {
+                    this.showNotification('Please select at least one record', 'warning');
+                    return;
+                }
+
+                this.showLoading('Preparing download...');
+                
+                // Simulate API call
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                this.hideLoading();
+                this.showNotification('Records downloaded successfully!', 'success');
+                this.closeModal(modal);
+            };
+        }
+    }
+
+    handleUploadDocument() {
+        document.getElementById('documentUploadInput').click();
+    }
+
+    handleFileSelected(files) {
+        if (files.length > 0) {
+            const file = files[0];
+            console.log('Selected file:', file.name);
+            this.showNotification(`Uploading ${file.name}...`, 'info');
+            // Here you would typically handle the file upload process
+            setTimeout(() => {
+                this.showNotification(`${file.name} uploaded successfully!`, 'success');
+            }, 1500);
+        }
+    }
+
+    handleButtonClick(element) {
+        const btnId = element.id;
+
+        if (btnId === 'editProfileBtn') {
+            this.openModal('editProfileModal');
+        } else if (btnId === 'saveProfile') {
+            this.saveProfile();
+        } else if (btnId === 'cancelEdit' || btnId === 'closeModal') {
+             const modal = element.closest('.modal');
+             if(modal) this.closeModal(modal);
+        } else if (element.textContent.trim().toLowerCase().includes('change')) {
+            this.showNotification('Password change functionality coming soon!');
+        }
+    }
+
+    setupFormHandlers() {
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.handleToggleChange(e.target);
+            });
+        });
+    }
+
+    handleToggleChange(toggle) {
+        const isChecked = toggle.checked;
+        const toggleType = toggle.id;
+        
+        if (toggleType === 'notificationsToggle') {
+            this.showNotification(`Notifications ${isChecked ? 'enabled' : 'disabled'}`, 'success');
+        }
+    }
+
+    setupFormHandlersForModal(modal) {
+        switch (modal.id) {
+            case 'bookAppointmentModal':
+                this.setupAppointmentForm(modal);
+                break;
+            case 'videoConsultationModal':
+                this.setupVideoConsultation(modal);
+                break;
+            case 'prescriptionRefillModal':
+                this.setupPrescriptionRefill(modal);
+                break;
+            case 'downloadRecordsModal':
+                this.setupDownloadRecords(modal);
+                break;
+        }
+    }
+
+    openEditProfileModal() {
+        this.openModal('editProfileModal');
+        this.populateEditForm();
+        this.setupProfileValidation();
+    }
+
+    closeEditProfileModal() {
+        const modal = document.getElementById('editProfileModal');
+        if (modal) {
+            this.closeModal(modal);
+        }
+    }
+
+    populateEditForm() {
+        const elements = {
+            editFullName: 'fullName',
+            editDateOfBirth: 'dateOfBirth',
+            editPhoneNumber: 'phoneNumber',
+            editEmailAddress: 'emailAddress',
+            editBio: 'bio'
+        };
+
+        Object.entries(elements).forEach(([formId, displayId]) => {
+            const formElement = document.getElementById(formId);
+            const displayElement = document.getElementById(displayId);
+            
+            if (formElement && displayElement) {
+                const value = displayElement.textContent;
+                if (value && value !== '--/--/----' && value !== 'Loading...' && value !== 'Not provided') {
+                    formElement.value = value;
+                }
+            }
+        });
+    }
+
+    setupProfileValidation() {
+        const form = document.getElementById('profileForm');
+        const saveBtn = document.getElementById('saveProfile');
+        const inputs = form.querySelectorAll('input, textarea');
+        
+        // Add validation classes and aria attributes
+        inputs.forEach(input => {
+            input.setAttribute('aria-required', 'true');
+            
+            // Add validation event listeners
+            input.addEventListener('input', () => {
+                this.validateInput(input);
+                this.updateSaveButtonState();
+            });
+
+            input.addEventListener('blur', () => {
+                this.validateInput(input);
+            });
+        });
+
+        // Phone number formatting
+        const phoneInput = document.getElementById('editPhoneNumber');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 0) {
+                    if (value.length <= 3) {
+                        value = value;
+                    } else if (value.length <= 6) {
+                        value = value.slice(0, 3) + '-' + value.slice(3);
+                    } else {
+                        value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6, 10);
+                    }
+                }
+                e.target.value = value;
+            });
+        }
+
+        // Date of birth validation and formatting
+        const dobInput = document.getElementById('editDateOfBirth');
+        if (dobInput) {
+            dobInput.setAttribute('max', this.getMaxDate());
+            dobInput.addEventListener('change', () => {
+                this.validateDateOfBirth(dobInput);
+            });
+        }
+
+        // Email validation
+        const emailInput = document.getElementById('editEmailAddress');
+        if (emailInput) {
+            emailInput.addEventListener('input', () => {
+                this.validateEmail(emailInput);
+            });
+        }
+
+        // Bio character count
+        const bioInput = document.getElementById('editBio');
+        if (bioInput) {
+            const maxLength = 500;
+            bioInput.setAttribute('maxlength', maxLength);
+            
+            const charCount = document.createElement('div');
+            charCount.className = 'char-count';
+            charCount.style.cssText = 'text-align: right; font-size: 0.8em; color: #666;';
+            bioInput.parentNode.appendChild(charCount);
+            
+            const updateCharCount = () => {
+                const remaining = maxLength - bioInput.value.length;
+                charCount.textContent = `${remaining} characters remaining`;
+                charCount.style.color = remaining < 50 ? '#dc2626' : '#666';
+            };
+            
+            bioInput.addEventListener('input', updateCharCount);
+            updateCharCount();
+        }
+    }
+
+    validateInput(input) {
+        const value = input.value.trim();
+        let isValid = true;
+        let errorMessage = '';
+
+        switch (input.id) {
+            case 'editFullName':
+                if (value.length < 2) {
+                    isValid = false;
+                    errorMessage = 'Name must be at least 2 characters long';
+                } else if (!/^[a-zA-Z\s-']+$/.test(value)) {
+                    isValid = false;
+                    errorMessage = 'Name can only contain letters, spaces, hyphens, and apostrophes';
+                }
+                break;
+            case 'editPhoneNumber':
+                if (!/^\d{3}-\d{3}-\d{4}$/.test(value)) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid phone number (e.g., 123-456-7890)';
+                }
+                break;
+            case 'editEmailAddress':
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                    isValid = false;
+                    errorMessage = 'Please enter a valid email address';
+                }
+                break;
+            case 'editBio':
+                if (value.length > 500) {
+                    isValid = false;
+                    errorMessage = 'Bio must not exceed 500 characters';
+                }
+                break;
+        }
+
+        this.updateInputValidationUI(input, isValid, errorMessage);
+        return isValid;
+    }
+
+    updateInputValidationUI(input, isValid, errorMessage) {
+        const errorElement = this.getOrCreateErrorElement(input);
+        
+        if (!isValid) {
+            input.classList.add('invalid');
+            input.classList.remove('valid');
+            errorElement.textContent = errorMessage;
+            errorElement.style.display = 'block';
+        } else {
+            input.classList.remove('invalid');
+            input.classList.add('valid');
+            errorElement.style.display = 'none';
+        }
+    }
+
+    getOrCreateErrorElement(input) {
+        const errorId = `${input.id}-error`;
+        let errorElement = document.getElementById(errorId);
+        
+        if (!errorElement) {
+            errorElement = document.createElement('div');
+            errorElement.id = errorId;
+            errorElement.className = 'error-message';
+            errorElement.style.cssText = 'color: #dc2626; font-size: 0.8em; margin-top: 4px; display: none;';
+            input.parentNode.appendChild(errorElement);
+        }
+        
+        return errorElement;
+    }
+
+    validateDateOfBirth(input) {
+        const value = input.value;
+        const date = new Date(value);
+        const today = new Date();
+        const minDate = new Date();
+        minDate.setFullYear(today.getFullYear() - 120); // Maximum age 120 years
+        
+        let isValid = true;
+        let errorMessage = '';
+
+        if (!value) {
+            isValid = false;
+            errorMessage = 'Date of birth is required';
+        } else if (date > today) {
+            isValid = false;
+            errorMessage = 'Date of birth cannot be in the future';
+        } else if (date < minDate) {
+            isValid = false;
+            errorMessage = 'Please enter a valid date of birth';
+        }
+
+        this.updateInputValidationUI(input, isValid, errorMessage);
+        return isValid;
+    }
+
+    validateEmail(input) {
+        const value = input.value.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const isValid = emailRegex.test(value);
+        
+        this.updateInputValidationUI(input, isValid, isValid ? '' : 'Please enter a valid email address');
+        return isValid;
+    }
+
+    getMaxDate() {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    }
+
+    updateSaveButtonState() {
+        const form = document.getElementById('profileForm');
+        const saveBtn = document.getElementById('saveProfile');
+        const inputs = form.querySelectorAll('input, textarea');
+        
+        let isValid = true;
+        inputs.forEach(input => {
+            if (input.classList.contains('invalid') || !input.value.trim()) {
+                isValid = false;
+            }
+        });
+
+        saveBtn.disabled = !isValid;
+        saveBtn.style.opacity = isValid ? '1' : '0.5';
+    }
+
+    async saveProfile() {
+        const form = document.getElementById('profileForm');
+        if (!form) {
+            this.showNotification('Form not found!', 'error');
+            return;
+        }
+
+        // Validate all inputs
+        const inputs = form.querySelectorAll('input, textarea');
+        let isValid = true;
+        inputs.forEach(input => {
+            if (!this.validateInput(input)) {
+                isValid = false;
+            }
+        });
+
+        if (!isValid) {
+            this.showNotification('Please fix the errors before saving', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading('Saving profile changes...');
+
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            // Prepare profile data
+            const profileData = {
+                personalInfo: {
+                    firstName: data.editFullName.split(' ')[0],
+                    lastName: data.editFullName.split(' ').slice(1).join(' '),
+                    fullName: data.editFullName,
+                    dateOfBirth: data.editDateOfBirth,
+                    phone: data.editPhoneNumber,
+                    email: data.editEmailAddress,
+                    bio: data.editBio
+                },
+                profileComplete: true,
+                lastUpdated: new Date().toISOString()
+            };
+
+            // In a real app, you would save to backend here
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+
+            // Update local state
+            this.patientData = {
+                ...this.patientData,
+                ...profileData
+            };
+
+            // Update UI
+            this.updateProfileDisplay(data);
+            this.closeEditProfileModal();
+            this.showNotification('Profile updated successfully!', 'success');
+
+            // Refresh profile section
+            this.loadTabContent('general');
+
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            this.showNotification('Failed to save profile changes. Please try again.', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    updateProfileDisplay(data) {
+        // Update basic profile information
+        const elements = {
+            fullName: data.editFullName || '',
+            dateOfBirth: data.editDateOfBirth || '',
+            phoneNumber: data.editPhoneNumber || '',
+            emailAddress: data.editEmailAddress || '',
+            bio: data.editBio || ''
+        };
+
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element && value) {
+                element.textContent = value;
+            }
+        });
+
+        // Update age if date of birth was changed
+        if (data.editDateOfBirth) {
+            const age = this.calculateAge(data.editDateOfBirth);
+            const ageElement = document.getElementById('age');
+            if (ageElement) {
+                ageElement.textContent = age;
+            }
+        }
+
+        // Update name in header and other locations
+        if (data.editFullName) {
+            const firstName = data.editFullName.split(' ')[0];
+            
+            // Update all instances of the user's name
+            const nameElements = {
+                patientName: firstName,
+                patientDisplayName: firstName,
+                'profile-name': `${data.editFullName} <span class="gender-tag">(Patient)</span>`
+            };
+
+            Object.entries(nameElements).forEach(([id, value]) => {
+                const element = document.getElementById(id) || document.querySelector(`.${id}`);
+                if (element) {
+                    element.innerHTML = value;
+                }
+            });
+
+            // Update avatar initials
+            const initials = this.getInitials(
+                data.editFullName.split(' ')[0],
+                data.editFullName.split(' ').slice(1).join(' '),
+                data.editFullName
+            );
+
+            document.querySelectorAll('.user-avatar span, .profile-avatar-placeholder span')
+                .forEach(element => {
+                    element.textContent = initials;
+                });
+        }
+    }
+
+    loadSectionData(sectionName) {
+        switch (sectionName) {
+            case 'dashboard':
+                console.log('Loading dashboard data...');
+                break;
+            case 'calendar':
+                console.log('Loading calendar data...');
+                this.updateCalendarDisplay();
+                break;
+            case 'profile':
+                console.log('Loading profile data...');
+                break;
+            case 'help':
+                console.log('Loading help data...');
+                break;
+        }
     }
 
     showLoading(message = 'Loading...') {
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingMessage = document.getElementById('loadingMessage');
         
-        if (loadingOverlay && loadingMessage) {
+        if (loadingMessage) {
             loadingMessage.textContent = message;
+        }
+        
+        if (loadingOverlay) {
             loadingOverlay.style.display = 'flex';
         }
     }
@@ -446,906 +1420,120 @@ class PatientPortalUI {
         }
     }
 
+    async handleLogout() {
+        if (confirm('Are you sure you want to logout?')) {
+            try {
+                // Show loading notification
+                this.showNotification('Logging out...', 'info');
+                
+                // Disable logout button to prevent multiple clicks
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.disabled = true;
+                    logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Logging out...</span>';
+                }
+                
+                // Import and call auth service logout
+                const authServiceModule = await import('../services/auth-service.js');
+                const authService = authServiceModule.default;
+                
+                // Call proper logout method
+                await authService.logout();
+                
+                // Clear any cached data
+                authService.forceClearAuthState();
+                
+                // Show success message
+                this.showNotification('Logged out successfully. Redirecting...', 'success');
+                
+                // Redirect after delay
+                setTimeout(() => {
+                    window.location.href = '/public/patientSign-in.html';
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Logout error:', error);
+                
+                // Reset logout button state
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.disabled = false;
+                    logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> <span>Logout</span>';
+                }
+                
+                // Show error notification
+                this.showNotification('Logout failed. Please try again.', 'error');
+            }
+        }
+    }
+
     handleError(error) {
-        console.error('🚨 Portal Error:', error);
-        this.showNotification(`Something went wrong: ${error.message}`, 'error');
-        
-        // Send error to monitoring service in production
-        if (typeof gtag !== 'undefined') {
-            gtag('event', 'exception', {
-                description: error.message,
-                fatal: false
-            });
-        }
+        console.error('Patient Portal Error:', error);
+        this.showNotification('An error occurred. Please try again.', 'error');
     }
 
-    // Enhanced Calendar System
-    setupCalendar() {
-        const prevBtn = document.getElementById('prevMonth');
-        const nextBtn = document.getElementById('nextMonth');
-        const bookAppointmentBtn = document.getElementById('bookAppointmentBtn');
-
-        if (prevBtn) {
-            prevBtn.addEventListener('click', () => {
-                this.currentMonth--;
-                if (this.currentMonth < 0) {
-                    this.currentMonth = 11;
-                    this.currentYear--;
-                }
-                this.generateCalendar();
-            });
-        }
-
-        if (nextBtn) {
-            nextBtn.addEventListener('click', () => {
-                this.currentMonth++;
-                if (this.currentMonth > 11) {
-                    this.currentMonth = 0;
-                    this.currentYear++;
-                }
-                this.generateCalendar();
-            });
-        }
-
-        if (bookAppointmentBtn) {
-            bookAppointmentBtn.addEventListener('click', () => {
-                this.showBookingModal();
-            });
-        }
-    }
-
-    initializeCalendar() {
-        this.generateCalendar();
-    }
-
-    generateCalendar() {
-        const calendarDays = document.getElementById('calendarDays');
-        const currentMonthElement = document.getElementById('currentMonth');
-        
-        if (!calendarDays) return;
-
-        const monthNames = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-
-        if (currentMonthElement) {
-            currentMonthElement.textContent = `${monthNames[this.currentMonth]} ${this.currentYear}`;
-        }
-
-        const firstDay = new Date(this.currentYear, this.currentMonth, 1).getDay();
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        const today = new Date();
-
-        calendarDays.innerHTML = '';
-
-        // Add empty cells for days before month starts
-        for (let i = 0; i < firstDay; i++) {
-            const emptyDay = document.createElement('div');
-            emptyDay.classList.add('calendar-day', 'empty');
-            calendarDays.appendChild(emptyDay);
-        }
-
-        // Add calendar days
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dayElement = document.createElement('div');
-            dayElement.classList.add('calendar-day');
-            
-            const dayNumber = document.createElement('span');
-            dayNumber.classList.add('day-number');
-            dayNumber.textContent = day;
-            dayElement.appendChild(dayNumber);
-
-            // Highlight today
-            if (this.currentMonth === today.getMonth() && 
-                this.currentYear === today.getFullYear() && 
-                day === today.getDate()) {
-                dayElement.classList.add('today');
-            }
-
-            // Add sample appointments
-            if (day === 22 || day === 25) {
-                dayElement.classList.add('has-appointment');
-            }
-
-            // Add click handler for calendar days
-            dayElement.addEventListener('click', () => {
-                this.handleCalendarDayClick(day, dayElement);
-            });
-
-            calendarDays.appendChild(dayElement);
-        }
-    }
-
-    handleCalendarDayClick(day, element) {
-        // Add click animation
-        element.classList.add('clicked');
-        setTimeout(() => {
-            element.classList.remove('clicked');
-        }, 300);
-
-        // Show day details or booking modal
-        if (element.classList.contains('has-appointment')) {
-            this.showAppointmentDetails(day);
-        } else {
-            this.showBookingModal(day);
-        }
-    }
-
-    showAppointmentDetails(day) {
-        const appointments = this.getAppointmentsForDay(day);
-        let message = `Appointments on ${this.currentMonth + 1}/${day}/${this.currentYear}:\n\n`;
-        
-        appointments.forEach(apt => {
-            message += `• ${apt.time} - ${apt.doctor}\n  ${apt.type}\n\n`;
-        });
-
-        alert(message);
-    }
-
-    showBookingModal(day = null) {
-        const dateStr = day ? `${this.currentMonth + 1}/${day}/${this.currentYear}` : 'Selected Date';
-        alert(`Book appointment for ${dateStr}\n\nThis would open a booking modal in a full implementation.`);
-    }
-
-    getAppointmentsForDay(day) {
-        // Sample appointment data
-        const appointments = {
-            22: [
-                { time: '10:30 AM', doctor: 'Dr. Sarah Johnson', type: 'Cardiology Consultation' }
-            ],
-            25: [
-                { time: '2:00 PM', doctor: 'Dr. Lisa Wong', type: 'Speech Therapy Session' }
-            ]
-        };
-        return appointments[day] || [];
-    }
-
-    // Enhanced Profile System
-    setupProfile() {
-        this.setupProfileTabs();
-        this.setupProfileEditing();
-        this.setupDiseaseManagement();
-    }
-
-    initializeProfile() {
-        // Profile initialization logic
-        console.log('Profile section initialized');
-    }
-
-    setupProfileTabs() {
-        const tabButtons = document.querySelectorAll('.tab-button');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const targetTab = button.getAttribute('data-tab');
-                
-                // Remove active class from all tabs
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                tabContents.forEach(content => content.classList.remove('active'));
-                
-                // Add active class to clicked tab
-                button.classList.add('active');
-                const targetContent = document.getElementById(`${targetTab}-tab`);
-                if (targetContent) {
-                    targetContent.classList.add('active');
-                }
-            });
-        });
-    }
-
-    setupProfileEditing() {
-        const editProfileBtn = document.getElementById('editProfileBtn');
-        const editPersonalBtn = document.getElementById('editPersonalBtn');
-        const modal = document.getElementById('editProfileModal');
-        const closeModal = document.getElementById('closeModal');
-        const cancelEdit = document.getElementById('cancelEdit');
-        const saveProfile = document.getElementById('saveProfile');
-
-        // Open modal
-        [editProfileBtn, editPersonalBtn].forEach(btn => {
-            if (btn) {
-                btn.addEventListener('click', () => {
-                    if (modal) {
-                        modal.style.display = 'block';
-                        this.populateEditForm();
-                    }
-                });
-            }
-        });
-
-        // Close modal
-        [closeModal, cancelEdit].forEach(btn => {
-            if (btn) {
-                btn.addEventListener('click', () => {
-                    if (modal) {
-                        modal.style.display = 'none';
-                    }
-                });
-            }
-        });
-
-        // Save profile
-        if (saveProfile) {
-            saveProfile.addEventListener('click', () => {
-                this.saveProfileChanges();
-            });
-        }
-
-        // Close modal when clicking outside
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        }
-    }
-
-    populateEditForm() {
-        // Get current values and populate form
-        const fullName = document.getElementById('fullName')?.textContent;
-        const dateOfBirth = document.getElementById('dateOfBirth')?.textContent;
-        const phoneNumber = document.getElementById('phoneNumber')?.textContent;
-        const emailAddress = document.getElementById('emailAddress')?.textContent;
-        const bio = document.getElementById('bio')?.textContent;
-
-        if (fullName) document.getElementById('editFullName').value = fullName;
-        if (dateOfBirth) {
-            // Convert display format to input format
-            const [month, day, year] = dateOfBirth.split('/');
-            if (month && day && year) {
-                document.getElementById('editDateOfBirth').value = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-            }
-        }
-        if (phoneNumber) document.getElementById('editPhoneNumber').value = phoneNumber;
-        if (emailAddress) document.getElementById('editEmailAddress').value = emailAddress;
-        if (bio) document.getElementById('editBio').value = bio;
-    }
-
-    saveProfileChanges() {
-        // Get form values
-        const fullName = document.getElementById('editFullName').value;
-        const dateOfBirth = document.getElementById('editDateOfBirth').value;
-        const phoneNumber = document.getElementById('editPhoneNumber').value;
-        const emailAddress = document.getElementById('editEmailAddress').value;
-        const bio = document.getElementById('editBio').value;
-
-        // Update display values
-        if (fullName) document.getElementById('fullName').textContent = fullName;
-        if (dateOfBirth) {
-            const [year, month, day] = dateOfBirth.split('-');
-            document.getElementById('dateOfBirth').textContent = `${month}/${day}/${year}`;
-            
-            // Calculate and update age
-            const birthDate = new Date(dateOfBirth);
-            const age = new Date().getFullYear() - birthDate.getFullYear();
-            document.getElementById('age').textContent = age;
-        }
-        if (phoneNumber) document.getElementById('phoneNumber').textContent = phoneNumber;
-        if (emailAddress) document.getElementById('emailAddress').textContent = emailAddress;
-        if (bio) document.getElementById('bio').textContent = bio;
-
-        // Update greeting
-        const greetingElement = document.querySelector('.greeting h1 span');
-        if (greetingElement && fullName) {
-            greetingElement.textContent = fullName;
-        }
-
-        // Close modal
-        document.getElementById('editProfileModal').style.display = 'none';
-        
-        // Show success notification
-        this.showNotification('Profile updated successfully!', 'success');
-    }
-
-    setupDiseaseManagement() {
-        const addDiseaseBtn = document.getElementById('addDiseaseBtn');
-        
-        if (addDiseaseBtn) {
-            addDiseaseBtn.addEventListener('click', () => {
-                this.showAddConditionModal();
-            });
-        }
-
-        // Setup existing disease tag removal
-        this.setupDiseaseTagRemoval();
-    }
-
-    showAddConditionModal() {
-        const condition = prompt('Enter medical condition:');
-        const category = prompt('Enter category (Speech/Physical):');
-        
-        if (condition && category) {
-            this.addConditionTag(condition, category);
-        }
-    }
-
-    addConditionTag(condition, category) {
-        const categoryId = category.toLowerCase() === 'speech' ? 'speechDiseases' : 'physicalDiseases';
-        const container = document.getElementById(categoryId);
-        
-        if (container) {
-            const tag = document.createElement('span');
-            tag.className = 'disease-tag';
-            tag.innerHTML = `${condition} <i class="fas fa-times"></i>`;
-            
-            // Add remove functionality
-            tag.querySelector('i').addEventListener('click', () => {
-                if (confirm('Remove this condition?')) {
-                    tag.remove();
-                    this.showNotification('Condition removed', 'info');
-                }
-            });
-            
-            container.appendChild(tag);
-            this.showNotification('Condition added successfully!', 'success');
-        }
-    }
-
-    setupDiseaseTagRemoval() {
-        const diseaseTags = document.querySelectorAll('.disease-tag i');
-        
-        diseaseTags.forEach(removeBtn => {
-            removeBtn.addEventListener('click', () => {
-                const tag = removeBtn.closest('.disease-tag');
-                if (tag && confirm('Remove this condition?')) {
-                    tag.remove();
-                    this.showNotification('Condition removed', 'info');
-                }
-            });
-        });
-    }
-
-    // Enhanced Help System
-    setupHelp() {
-        this.setupHelpSearch();
-        this.setupFAQ();
-    }
-
-    initializeHelp() {
-        console.log('Help section initialized');
-    }
-
-    setupHelpSearch() {
-        const helpSearchInput = document.getElementById('helpSearch');
-        const helpCategories = document.querySelectorAll('.help-category');
-        const faqItems = document.querySelectorAll('.faq-item');
-
-        if (helpSearchInput) {
-            helpSearchInput.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                
-                // Filter help categories
-                helpCategories.forEach(category => {
-                    const title = category.querySelector('h4').textContent.toLowerCase();
-                    const description = category.querySelector('p').textContent.toLowerCase();
-                    
-                    if (title.includes(searchTerm) || description.includes(searchTerm)) {
-                        category.style.display = 'block';
-                    } else {
-                        category.style.display = searchTerm === '' ? 'block' : 'none';
-                    }
-                });
-                
-                // Filter FAQ items
-                faqItems.forEach(item => {
-                    const question = item.querySelector('.faq-question span').textContent.toLowerCase();
-                    const answer = item.querySelector('.faq-answer p').textContent.toLowerCase();
-                    
-                    if (question.includes(searchTerm) || answer.includes(searchTerm)) {
-                        item.style.display = 'block';
-                    } else {
-                        item.style.display = searchTerm === '' ? 'block' : 'none';
-                    }
-                });
-            });
-        }
-    }
-
-    setupFAQ() {
-        const faqQuestions = document.querySelectorAll('.faq-question');
-        
-        faqQuestions.forEach(question => {
-            question.addEventListener('click', function() {
-                const faqItem = this.closest('.faq-item');
-                const answer = faqItem.querySelector('.faq-answer');
-                const icon = this.querySelector('i');
-                
-                // Toggle this FAQ
-                faqItem.classList.toggle('active');
-                
-                if (faqItem.classList.contains('active')) {
-                    answer.style.display = 'block';
-                    if (icon) {
-                        icon.classList.remove('fa-chevron-down');
-                        icon.classList.add('fa-chevron-up');
-                    }
-                } else {
-                    answer.style.display = 'none';
-                    if (icon) {
-                        icon.classList.remove('fa-chevron-up');
-                        icon.classList.add('fa-chevron-down');
-                    }
-                }
-            });
-        });
-    }
-
-    // Mobile Menu System
-    setupMobileMenu() {
-        // Add mobile menu toggle button to top bar
-        const topBar = document.querySelector('.top-bar');
-        const sidebar = document.querySelector('.sidebar');
-        
-        if (topBar && window.innerWidth <= 768) {
-            const mobileMenuBtn = document.createElement('button');
-            mobileMenuBtn.className = 'mobile-menu-toggle';
-            mobileMenuBtn.innerHTML = '<i class="fas fa-bars"></i>';
-            mobileMenuBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                this.toggleSidebarOverlay();
-            });
-            
-            topBar.insertBefore(mobileMenuBtn, topBar.firstChild);
-        }
-
-        // Close sidebar when clicking outside
-        const sidebarOverlay = document.createElement('div');
-        sidebarOverlay.className = 'sidebar-overlay';
-        sidebarOverlay.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            sidebarOverlay.classList.remove('active');
-        });
-        document.body.appendChild(sidebarOverlay);
-    }
-
-    toggleSidebarOverlay() {
-        const overlay = document.querySelector('.sidebar-overlay');
-        if (overlay) {
-            overlay.classList.toggle('active');
-        }
-    }
-
-    // Notification System
-    setupNotifications() {
-        // Notification system is ready
-    }
-
-    // 🚀 FLAWLESS Advanced Features
-    async setupAdvancedFeatures() {
-        await this.setupTouchGestures();
-        await this.setupPerformanceOptimizations();
-        await this.setupDataPersistence();
-        await this.setupServiceWorker();
-        await this.setupAnalytics();
-    }
-
-    async setupTouchGestures() {
-        // Swipe gestures for mobile navigation
-        document.addEventListener('touchstart', (e) => {
-            this.touchStartX = e.touches[0].clientX;
-            this.touchStartY = e.touches[0].clientY;
-        }, { passive: true });
-
-        document.addEventListener('touchmove', (e) => {
-            if (!this.touchStartX || !this.touchStartY) return;
-
-            const touchEndX = e.touches[0].clientX;
-            const touchEndY = e.touches[0].clientY;
-
-            const diffX = this.touchStartX - touchEndX;
-            const diffY = this.touchStartY - touchEndY;
-
-            // Only handle horizontal swipes
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-                if (diffX > 0) {
-                    // Swipe left - next section
-                    this.handleSwipeNavigation('next');
-                } else {
-                    // Swipe right - previous section
-                    this.handleSwipeNavigation('prev');
-                }
-            }
-
-            this.touchStartX = null;
-            this.touchStartY = null;
-        }, { passive: true });
-    }
-
-    handleSwipeNavigation(direction) {
-        const sections = ['Dashboard', 'Calendar', 'Profile', 'Help'];
-        const currentIndex = sections.indexOf(this.currentSection);
-        
-        let newIndex;
-        if (direction === 'next') {
-            newIndex = (currentIndex + 1) % sections.length;
-        } else {
-            newIndex = (currentIndex - 1 + sections.length) % sections.length;
-        }
-        
-        const targetSection = sections[newIndex];
-        const navItem = document.querySelector(`[aria-label="Navigate to ${targetSection}"]`);
-        if (navItem) {
-            navItem.click();
-        }
-    }
-
-    async setupPerformanceOptimizations() {
-        // Intersection Observer for lazy loading
-        if ('IntersectionObserver' in window) {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        this.lazyLoadContent(entry.target);
-                    }
-                });
-            }, { threshold: 0.1 });
-
-            this.observers.push(observer);
-        }
-
-        // Preload critical resources
-        this.preloadResources();
-    }
-
-    async setupDataPersistence() {
-        // Load cached data
-        const cachedData = localStorage.getItem('patient-portal-cache');
-        if (cachedData) {
-            try {
-                const data = JSON.parse(cachedData);
-                Object.entries(data).forEach(([key, value]) => {
-                    this.cache.set(key, value);
-                });
-                console.log('📦 Loaded cached data');
-            } catch (error) {
-                console.warn('Failed to load cached data:', error);
-            }
-        }
-
-        // Auto-save important data
-        setInterval(() => {
-            this.saveDataToCache();
-        }, 30000); // Save every 30 seconds
-    }
-
-    async setupServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            try {
-                const registration = await navigator.serviceWorker.register('/sw.js');
-                console.log('🔄 Service Worker registered:', registration);
-            } catch (error) {
-                console.log('Service Worker registration failed:', error);
-            }
-        }
-    }
-
-    async setupAnalytics() {
-        // Track user interactions
-        document.addEventListener('click', (e) => {
-            if (e.target.matches('button, .nav-link, .calendar-day')) {
-                this.trackEvent('click', {
-                    element: e.target.className,
-                    section: this.currentSection
-                });
-            }
-        });
-    }
-
-    trackEvent(eventName, data) {
-        console.log(`📊 Event: ${eventName}`, data);
-        
-        // Send to analytics service in production
-        if (typeof gtag !== 'undefined') {
-            gtag('event', eventName, data);
-        }
-    }
-
-    saveDataToCache() {
-        const cacheData = {};
-        this.cache.forEach((value, key) => {
-            cacheData[key] = value;
-        });
-        
-        try {
-            localStorage.setItem('patient-portal-cache', JSON.stringify(cacheData));
-            console.log('💾 Data saved to cache');
-        } catch (error) {
-            console.warn('Failed to save data to cache:', error);
-        }
-    }
-
-    preloadResources() {
-        // Preload images
-        const images = [
-            '/images/doctor-placeholder.jpg',
-            '/images/calendar-icon.svg'
-        ];
-
-        images.forEach(src => {
-            const img = new Image();
-            img.src = src;
-        });
-    }
-
-    lazyLoadContent(element) {
-        // Implement lazy loading for heavy content
-        if (element.dataset.src) {
-            element.src = element.dataset.src;
-            element.removeAttribute('data-src');
-        }
-    }
-
-    // 🎯 FLAWLESS Notification System
-    showNotification(message, type = 'info', duration = 3000) {
+    showNotification(message, type = 'info') {
         const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        
-        const colors = {
-            success: '#10b981',
-            error: '#ef4444', 
-            warning: '#f59e0b',
-            info: '#3b82f6'
-        };
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
 
-        const icons = {
-            success: '✓',
-            error: '✕',
-            warning: '⚠',
-            info: 'ℹ'
-        };
-        
-        notification.innerHTML = `
-            <span class="notification-icon">${icons[type]}</span>
-            <span class="notification-message">${message}</span>
-            <button class="notification-close" aria-label="Close notification">×</button>
-        `;
-        
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${colors[type]};
-            color: white;
-            padding: 16px 20px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 10000;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            max-width: 350px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transform: translateX(100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        `;
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            color: 'white',
+            fontWeight: '500',
+            zIndex: '9999',
+            maxWidth: '300px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        });
+
+        switch (type) {
+            case 'success':
+                notification.style.backgroundColor = '#10b981';
+                break;
+            case 'error':
+                notification.style.backgroundColor = '#ef4444';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#f59e0b';
+                break;
+            default:
+                notification.style.backgroundColor = '#0ea5e9';
+        }
         
         document.body.appendChild(notification);
         
-        // Animate in
-        requestAnimationFrame(() => {
-            notification.style.transform = 'translateX(0)';
-        });
-        
-        // Close button functionality
-        const closeBtn = notification.querySelector('.notification-close');
-        closeBtn.addEventListener('click', () => {
-            this.closeNotification(notification);
-        });
-        
-        // Auto-remove after duration
-        const timer = setTimeout(() => {
-            this.closeNotification(notification);
-        }, duration);
-        
-        // Pause timer on hover
-        notification.addEventListener('mouseenter', () => clearTimeout(timer));
-        notification.addEventListener('mouseleave', () => {
-            setTimeout(() => this.closeNotification(notification), 1000);
-        });
-
-        // Announce to screen readers
-        this.announceToScreenReader(`${type}: ${message}`);
-    }
-
-    closeNotification(notification) {
-        notification.style.transform = 'translateX(100%)';
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
+                notification.remove();
             }
-        }, 300);
+        }, 3000);
     }
 }
 
-// 🚀 FLAWLESS Initialization
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🎯 DOM loaded - Initializing FLAWLESS Patient Portal');
+// Initialize patient portal when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    const patientPortal = new PatientPortal();
     
-    try {
-        // Initialize with loading screen
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'flex';
+    // Make patient portal globally accessible for debugging
+    window.patientPortal = patientPortal;
+});
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        if (window.patientPortal) {
+            window.patientPortal.loadSectionData(window.patientPortal.currentSection);
         }
-        
-        // Create global instance
-        window.patientPortalUI = new PatientPortalUI();
-        
-        // Handle browser back/forward
-        window.addEventListener('popstate', (event) => {
-            if (event.state && event.state.section) {
-                window.patientPortalUI.navigateToSection(event.state.section);
-            }
-        });
-        
-        // Handle URL section parameter on load
-        const urlParams = new URLSearchParams(window.location.search);
-        const section = urlParams.get('section');
-        if (section) {
-            const sectionName = section.charAt(0).toUpperCase() + section.slice(1);
-            setTimeout(() => {
-                window.patientPortalUI.navigateToSection(sectionName);
-            }, 500);
-        }
-        
-        // Hide loading screen
-        setTimeout(() => {
-            if (loadingOverlay) {
-                loadingOverlay.style.display = 'none';
-            }
-        }, 1000);
-        
-        console.log('✅ FLAWLESS Patient Portal initialized successfully!');
-        
-    } catch (error) {
-        console.error('❌ Failed to initialize Patient Portal:', error);
-        
-        // Fallback error message
-        document.body.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; font-family: Inter, sans-serif;">
-                <h1 style="color: #e74c3c; margin-bottom: 20px;">⚠️ Loading Error</h1>
-                <p style="color: #666; margin-bottom: 20px;">Failed to load the patient portal. Please refresh the page.</p>
-                <button onclick="window.location.reload()" style="background: #4A90E2; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">Refresh Page</button>
-            </div>
-        `;
     }
 });
 
-// 🎨 Add Enhanced Styles and Animations
-const enhancedStyles = document.createElement('style');
-enhancedStyles.textContent = `
-    /* FLAWLESS Keyboard Navigation Styles */
-    .keyboard-navigation *:focus {
-        outline: 3px solid #4A90E2 !important;
-        outline-offset: 2px !important;
-        border-radius: 4px !important;
+// Handle window resize
+window.addEventListener('resize', () => {
+    if (window.patientPortal) {
+        window.patientPortal.updateCalendarDisplay();
     }
-    
-    /* FLAWLESS Notification Styles */
-    .notification-icon {
-        font-weight: bold;
-        font-size: 16px;
-    }
-    
-    .notification-message {
-        flex: 1;
-        line-height: 1.4;
-    }
-    
-    .notification-close {
-        background: none;
-        border: none;
-        color: currentColor;
-        font-size: 18px;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        opacity: 0.7;
-        transition: opacity 0.2s ease;
-    }
-    
-    .notification-close:hover {
-        opacity: 1;
-        background: rgba(255, 255, 255, 0.1);
-    }
-    
-    /* FLAWLESS Loading States */
-    .content-loading {
-        opacity: 0.6;
-        pointer-events: none;
-        filter: blur(1px);
-    }
-    
-    /* FLAWLESS Smooth Scrolling */
-    html {
-        scroll-behavior: smooth;
-    }
-    
-    /* FLAWLESS Focus Ring */
-    :focus-visible {
-        outline: 3px solid #4A90E2;
-        outline-offset: 2px;
-        border-radius: 4px;
-    }
-    
-    /* FLAWLESS Selection */
-    ::selection {
-        background: #4A90E2;
-        color: white;
-    }
-    
-    /* FLAWLESS High Performance */
-    * {
-        will-change: auto;
-    }
-    
-    .calendar-day,
-    .nav-link,
-    .btn-primary,
-    .btn-outline,
-    .action-btn,
-    .help-category,
-    .appointment-card {
-        will-change: transform;
-    }
-    
-    /* FLAWLESS Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        .micro-bounce,
-        .page-transition,
-        .loading-spinner {
-            animation: none !important;
-        }
-        
-        * {
-            transition-duration: 0.01ms !important;
-        }
-    }
-`;
-
-document.head.appendChild(enhancedStyles);
-
-// 🎯 FLAWLESS Performance Monitoring
-if ('performance' in window) {
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const perfData = performance.getEntriesByType('navigation')[0];
-            console.log('⚡ Page Performance:', {
-                loadTime: Math.round(perfData.loadEventEnd - perfData.fetchStart),
-                domReady: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart),
-                firstPaint: Math.round(performance.getEntriesByType('paint')[0]?.startTime || 0)
-            });
-        }, 1000);
-    });
-}
-
-// 🔥 FLAWLESS Error Boundary
-window.addEventListener('error', (event) => {
-    console.error('🚨 Global Error:', event.error);
-    
-    if (window.patientPortalUI) {
-        window.patientPortalUI.showNotification('An unexpected error occurred', 'error');
-    }
-    
-    // Track error for analytics
-    if (typeof gtag !== 'undefined') {
-        gtag('event', 'exception', {
-            description: event.error?.message || 'Unknown error',
-            fatal: false
-        });
-    }
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-    console.error('🚨 Unhandled Promise Rejection:', event.reason);
-    
-    if (window.patientPortalUI) {
-        window.patientPortalUI.showNotification('A system error occurred', 'error');
-    }
-});
-
-console.log('🚀 FLAWLESS Patient Portal JavaScript loaded successfully!'); 
+}); 

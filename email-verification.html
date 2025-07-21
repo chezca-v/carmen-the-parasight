@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Verification - Carmen ParaSight</title>
+    <title>Email Verification - LingapLink</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -221,7 +221,7 @@
                 setLoading(true);
                 
                 // Import Firebase auth functions
-                const { sendEmailVerification } = await import('firebase/auth');
+                const { sendEmailVerification } = await import('https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js');
                 
                 // Send verification email
                 await sendEmailVerification(currentUser);
