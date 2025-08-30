@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../config/firebase'
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
-import '../styles/partnerSignUp.css'
+import '../styles/partnerSignIn.css'
 import '../styles/csp-utilities.css'
 
 const PartnerSignIn: React.FC = React.memo(() => {
@@ -59,11 +59,28 @@ const PartnerSignIn: React.FC = React.memo(() => {
       setIsGoogleSignInInProgress(true)
       setErrorMessage('')
       
+      console.log('🔐 Starting Google sign-in process...')
+      console.log('🔐 Auth object available:', !!auth)
+      console.log('🔐 GoogleAuthProvider available:', !!GoogleAuthProvider)
+      
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
       provider.addScope('profile')
       
-      await signInWithPopup(auth, provider)
+      console.log('🔐 Google provider configured:', provider)
+      console.log('🔐 Attempting sign-in with popup...')
+      
+      // Check if popup is blocked
+      const popupTest = window.open('', '_blank', 'width=1,height=1')
+      if (popupTest) {
+        popupTest.close()
+        console.log('✅ Popup is not blocked, proceeding with Google sign-in')
+      } else {
+        console.log('⚠️ Popup might be blocked by browser')
+      }
+      
+      const result = await signInWithPopup(auth, provider)
+      console.log('✅ Google sign-in successful:', result.user.email)
       
       showNotification('Google sign in successful! Welcome back.', 'success')
       
@@ -73,8 +90,29 @@ const PartnerSignIn: React.FC = React.memo(() => {
       }, 1000)
 
     } catch (error: any) {
-      console.error('Google sign in error:', error)
-      setErrorMessage(error.message || 'Google sign in failed. Please try again.')
+      console.error('🔐 Google sign in error:', error)
+      console.error('🔐 Error code:', error.code)
+      console.error('🔐 Error message:', error.message)
+      console.error('🔐 Full error object:', error)
+      
+      // Provide better error messages for common Google sign-in issues
+      let message = 'Google sign in failed. Please try again.'
+      
+      if (error.code === 'auth/network-request-failed') {
+        message = 'Network error. Please check your connection and try again.'
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        message = 'Sign-in popup was closed. Please try again.'
+      } else if (error.code === 'auth/popup-blocked') {
+        message = 'Pop-up blocked by browser. Please allow pop-ups for this site.'
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        message = 'Sign-in was cancelled. Please try again.'
+      } else if (error.code === 'auth/account-exists-with-different-credential') {
+        message = 'An account already exists with this email using a different sign-in method.'
+      } else if (error.message) {
+        message = error.message
+      }
+      
+      setErrorMessage(message)
     } finally {
       setIsGoogleSignInInProgress(false)
     }
@@ -130,95 +168,129 @@ const PartnerSignIn: React.FC = React.memo(() => {
   }, [])
 
   return (
-    <div className="partner-signup-container">
-      <div className="signup-header">
-        <div className="logo">
+    <div className="partner-signin-container">
+      {/* Left Side - Brand Section */}
+      <div className="signin-brand">
+        <div className="brand-logo">
           <i className="fas fa-heartbeat"></i>
           <span>LingapLink</span>
         </div>
-        <h1>Healthcare Provider Sign In</h1>
-        <p>Access your facility dashboard and manage your practice</p>
+        
+        <div className="brand-content">
+          <h1>Welcome Back</h1>
+          <p>Sign in to your healthcare provider dashboard and continue managing your practice with our comprehensive platform.</p>
+          
+          <div className="brand-features">
+            <div className="feature-item">
+              <i className="fas fa-check-circle"></i>
+              <span>Manage patient appointments</span>
+            </div>
+            <div className="feature-item">
+              <i className="fas fa-check-circle"></i>
+              <span>Access consultation tools</span>
+            </div>
+            <div className="feature-item">
+              <i className="fas fa-check-circle"></i>
+              <span>View analytics & reports</span>
+            </div>
+            <div className="feature-item">
+              <i className="fas fa-check-circle"></i>
+              <span>Secure patient management</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="signup-content">
-        <form onSubmit={handleSubmit} className="signup-form">
-          <div className="form-step">
-            <h2>Sign In to Your Account</h2>
-            <p>Enter your credentials to access your dashboard</p>
-            
-            <div className="form-group">
-              <label htmlFor="email">Email Address *</label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                required
-              />
-            </div>
+      {/* Right Side - Form Section */}
+      <div className="signin-form-section">
+        <div className="signin-form-container">
+          <div className="form-header">
+            <h2>Provider Sign In</h2>
+          </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Password *</label>
-              <div className="password-input">
+          {errorMessage && (
+            <div className="error-message">
+              <i className="fas fa-exclamation-circle"></i>
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="signin-form">
+            <div className="form-step">
+              <div className="form-group">
+                <label htmlFor="email">Email Address</label>
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email address"
                   required
                 />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <div className="password-input">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <i className={`fas fa-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+                  </button>
+                </div>
+              </div>
+
+                {/* New container for Remember Me and Forgot Password */}
+        <div className="form-options">
+          <div className="remember-me">
+            <input type="checkbox" id="remember-me" />
+            <label htmlFor="remember-me">Remember me</label>
+          </div>
+          <a href="/reset-password">Forgot password?</a>
+        </div>
+
+              <div className="form-actions">
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={isLoading}
                 >
-                  <i className={`fas fa-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+                  {isLoading ? 'Signing In...' : 'Sign In'}
                 </button>
               </div>
             </div>
+          </form>
 
-            <div className="form-actions">
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                disabled={isLoading}
-              >
-                {isLoading ? 'Signing In...' : 'Sign In'}
-              </button>
+          <div className="social-signup">
+            <div className="divider">
+              <span>or</span>
             </div>
+            <button
+              type="button"
+              className="btn btn-google"
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleSignInInProgress}
+            >
+              <i className="fab fa-google"></i>
+              {isGoogleSignInInProgress ? 'Signing in...' : 'Continue with Google'}
+            </button>
           </div>
-        </form>
 
-        <div className="social-signup">
-          <div className="divider">
-            <span>or</span>
+          <div className="signin-footer">
+            <p>New to LingapLink? <a href="/partner-signup">Register here</a> or <a href="/help">contact support</a>.</p>
           </div>
-          <button
-            type="button"
-            className="btn btn-google"
-            onClick={handleGoogleSignIn}
-            disabled={isGoogleSignInInProgress}
-          >
-            <i className="fab fa-google"></i>
-            {isGoogleSignInInProgress ? 'Signing in...' : 'Continue with Google'}
-          </button>
         </div>
-
-        {errorMessage && (
-          <div className="error-message general-error">
-            <i className="fas fa-exclamation-circle"></i>
-            {errorMessage}
-          </div>
-        )}
-      </div>
-
-      <div className="signup-footer">
-        <p>Don't have an account? <a href="/partner-signup">Register your facility here</a></p>
-        <p>Forgot password? <a href="/reset-password">Reset your password</a></p>
-        <p>Need help? <a href="/help">Contact our support team</a></p>
       </div>
     </div>
   )

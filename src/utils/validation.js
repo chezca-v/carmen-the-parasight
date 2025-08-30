@@ -525,6 +525,27 @@ function validateProfileUpdateData(data) {
     const errors = [];
     const sanitizedData = {};
     
+    // Validate firstName
+    if (data.firstName) {
+        const firstNameResult = validateName(data.firstName, 'First name');
+        if (!firstNameResult.valid) {
+            errors.push(firstNameResult.error);
+        } else {
+            sanitizedData.firstName = firstNameResult.value;
+        }
+    }
+    
+    // Validate lastName
+    if (data.lastName) {
+        const lastNameResult = validateName(data.lastName, 'Last name');
+        if (!lastNameResult.valid) {
+            errors.push(lastNameResult.error);
+        } else {
+            sanitizedData.lastName = lastNameResult.value;
+        }
+    }
+    
+    // Validate fullName
     if (data.fullName) {
         const nameResult = validateName(data.fullName, 'Full name');
         if (!nameResult.valid) {
@@ -534,6 +555,17 @@ function validateProfileUpdateData(data) {
         }
     }
     
+    // Validate gender (simple validation for allowed values)
+    if (data.gender !== undefined && data.gender !== null) {
+        const allowedGenders = ['Male', 'Female', 'Other', 'Prefer not to say', ''];
+        if (allowedGenders.includes(data.gender)) {
+            sanitizedData.gender = data.gender;
+        } else {
+            errors.push('Invalid gender selection');
+        }
+    }
+    
+    // Validate phone
     if (data.phone) {
         const phoneResult = validatePhone(data.phone);
         if (!phoneResult.valid) {
@@ -543,6 +575,17 @@ function validateProfileUpdateData(data) {
         }
     }
     
+    // Validate address
+    if (data.address) {
+        const addressResult = validateAddress(data.address);
+        if (!addressResult.valid) {
+            errors.push(addressResult.error);
+        } else {
+            sanitizedData.address = addressResult.value;
+        }
+    }
+    
+    // Validate dateOfBirth
     if (data.dateOfBirth) {
         const dobResult = validateDateOfBirth(data.dateOfBirth);
         if (!dobResult.valid) {
@@ -552,6 +595,16 @@ function validateProfileUpdateData(data) {
         }
     }
     
+    // Validate age (if provided)
+    if (data.age !== undefined && data.age !== null) {
+        if (typeof data.age === 'number' && data.age >= 0 && data.age <= 150) {
+            sanitizedData.age = data.age;
+        } else {
+            errors.push('Invalid age value');
+        }
+    }
+    
+    // Validate bio
     if (data.bio) {
         const bioResult = validateBio(data.bio);
         if (!bioResult.valid) {

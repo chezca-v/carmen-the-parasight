@@ -1,0 +1,39 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Strict Type Checking
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitExcessPropertyChecks": true,
+    "noPropertyAccessFromIndexSignature": true,
+    
+    // Additional Checks
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffect": true,
+    
+    // Function Checks
+    "noImplicitReturns": true,
+    
+    // Advanced
+    "useUnknownInCatchVariables": true,
+    
+    // Performance
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*",
+    "scripts/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage"
+  ]
+}

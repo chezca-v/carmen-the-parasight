@@ -1,5 +1,5 @@
 // Firebase configuration - centralized config management
-// 🔒 SECURITY: This configuration now properly uses environment variables
+// 🔒 SECURITY: This configuration properly uses environment variables only
 // ✅ NO HARDCODED CREDENTIALS - All sensitive data must be in .env file
 // 
 // IMPORTANT: Never commit Firebase credentials to version control!
@@ -24,29 +24,15 @@ const getEnvVar = (key, fallback) => {
     return fallback;
 };
 
-// 🚀 LIVE SERVER USERS: For quick testing, temporarily uncomment and fill in the section below:
-// ⚠️  SECURITY WARNING: Remember to comment this out before committing to Git!
-
-// TEMPORARY CONFIGURATION FOR LIVE SERVER TESTING
-// Uncomment this block and add your Firebase credentials for immediate testing
-const tempFirebaseConfig = {
-    apiKey: "AIzaSyADZIfbk0DqSxWwhNbFtU8bf-pX6qdVM6s",  // ← PUT YOUR REAL API KEY HERE
-    authDomain: "carmen-para-sight-v2.firebaseapp.com", 
-    projectId: "carmen-para-sight-v2",
-    storageBucket: "carmen-para-sight-v2.firebasestorage.app",
-    messagingSenderId: "99887505888",
-    appId: "1:99887505888:web:99bbf44ebf52d8edfccb85",
-    measurementId: "G-GSV3W1CH0V"
-};
-
+// 🔒 SECURE: Firebase configuration using environment variables only
 const firebaseConfig = {
-    apiKey: getEnvVar('VITE_FIREBASE_API_KEY', null) || tempFirebaseConfig?.apiKey,
-    authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN', null) || tempFirebaseConfig?.authDomain,
-    projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID', null) || tempFirebaseConfig?.projectId,
-    storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET', null) || tempFirebaseConfig?.storageBucket,
-    messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID', null) || tempFirebaseConfig?.messagingSenderId,
-    appId: getEnvVar('VITE_FIREBASE_APP_ID', null) || tempFirebaseConfig?.appId,
-    measurementId: getEnvVar('VITE_FIREBASE_MEASUREMENT_ID', null) || tempFirebaseConfig?.measurementId
+    apiKey: getEnvVar('VITE_FIREBASE_API_KEY', null),
+    authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN', null),
+    projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID', null),
+    storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET', null),
+    messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID', null),
+    appId: getEnvVar('VITE_FIREBASE_APP_ID', null),
+    measurementId: getEnvVar('VITE_FIREBASE_MEASUREMENT_ID', null)
 };
 
 // Validate required configuration
@@ -57,13 +43,9 @@ if (missingFields.length > 0) {
     console.error('🚨 CRITICAL: Missing Firebase environment variables!');
     console.error('Missing required Firebase configuration fields:', missingFields);
     console.error('');
-    console.error('🔧 LIVE SERVER USERS - Quick Fix:');
-    console.error('1. Open src/services/config.js');
-    console.error('2. Find the commented tempFirebaseConfig section');
-    console.error('3. Uncomment it and add your Firebase credentials');
-    console.error('4. Uncomment the fallback operators in firebaseConfig');
+    console.error('🔒 SECURITY: Firebase credentials must be provided via environment variables');
     console.error('');
-    console.error('🔒 For production setup:');
+    console.error('🔧 Setup Instructions:');
     console.error('1. Create a .env file in your project root');
     console.error('2. Add the following environment variables:');
     console.error('   VITE_FIREBASE_API_KEY=your-api-key');
@@ -72,9 +54,10 @@ if (missingFields.length > 0) {
     console.error('   VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com');
     console.error('   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id');
     console.error('   VITE_FIREBASE_APP_ID=your-app-id');
-    console.error('3. Use npm run dev instead of Live Server');
+    console.error('   VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id');
+    console.error('3. Restart your development server');
     console.error('');
-    console.error('⚠️  SECURITY: Firebase credentials are now properly secured!');
+    console.error('⚠️  SECURITY: Never hardcode Firebase credentials in source code!');
     throw new Error(`🚨 Firebase configuration incomplete. Missing: ${missingFields.join(', ')}`);
 }
 
@@ -85,7 +68,7 @@ import('../utils/logger.js').then(({ default: logger }) => {
         authDomain: firebaseConfig.authDomain ? '***configured***' : 'MISSING',
         usingEnvVars: Boolean(getEnvVar('VITE_FIREBASE_API_KEY', null)),
         environment: typeof import.meta !== 'undefined' ? 'vite' : 'browser',
-        securityStatus: 'SECURE - No hardcoded credentials'
+        securityStatus: 'SECURE - Environment variables only'
     });
 }).catch(() => {
     // Fallback for when logger is not available (e.g., in Node.js environment)

@@ -1,19 +1,181 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow users to read and write their own documents
-    match /documents/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    
+    // ==================== HIPAA COMPLIANCE RULES ====================
+    
+    // Patient medical documents - highest security
+    match /patients/{patientId}/medical_documents/{documentId} {
+      // Only authenticated users can access
+      allow read: if request.auth != null && 
+        (
+          // Patient can access their own documents
+          request.auth.uid == patientId ||
+          // Healthcare providers with proper role and consent
+          hasValidProviderRole() && hasPatientConsent(patientId, 'treatment')
+        );
+      
+      // Only healthcare providers can upload medical documents
+      allow create: if request.auth != null && 
+        hasValidProviderRole() && hasPatientConsent(patientId, 'treatment') &&
+        // Validate file type and size
+        isValidMedicalDocument(request.resource);
+      
+      // Only the uploading provider or patient can update/delete
+      allow update, delete: if request.auth != null && 
+        (
+          request.auth.uid == resource.metadata.uploadedBy ||
+          request.auth.uid == patientId ||
+          hasRole('admin')
+        );
     }
     
-    // Allow public read access to profile images (if needed)
-    match /profile-images/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // Patient consent documents
+    match /patients/{patientId}/consent_documents/{documentId} {
+      allow read: if request.auth != null && 
+        (
+          request.auth.uid == patientId ||
+          hasValidProviderRole() && hasPatientConsent(patientId, 'healthcare_operations')
+        );
+      
+      allow create: if request.auth != null && 
+        (hasValidProviderRole() || request.auth.uid == patientId) &&
+        isValidConsentDocument(request.resource);
+      
+      allow update, delete: if request.auth != null && 
+        (
+          request.auth.uid == resource.metadata.uploadedBy ||
+          request.auth.uid == patientId ||
+          hasRole('admin')
+        );
     }
     
-    // Deny all other access
+    // Patient profile images
+    match /patients/{patientId}/profile_images/{imageId} {
+      allow read: if request.auth != null && 
+        (
+          request.auth.uid == patientId ||
+          hasValidProviderRole() && hasPatientConsent(patientId, 'healthcare_operations')
+        );
+      
+      allow create: if request.auth != null && 
+        (request.auth.uid == patientId || hasValidProviderRole()) &&
+        isValidProfileImage(request.resource);
+      
+      allow update, delete: if request.auth != null && 
+        (
+          request.auth.uid == patientId ||
+          hasRole('admin')
+        );
+    }
+    
+    // ==================== HEALTHCARE PROVIDER FILES ====================
+    
+    // Provider profile images
+    match /providers/{providerId}/profile_images/{imageId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && 
+        (request.auth.uid == providerId || hasRole('admin'));
+    }
+    
+    // Facility documents
+    match /facilities/{facilityId}/documents/{documentId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && 
+        (hasRole('facility_admin') || hasRole('admin'));
+    }
+    
+    // ==================== SYSTEM FILES ====================
+    
+    // System configuration files
+    match /system/{configType}/{fileName} {
+      allow read: if request.auth != null && 
+        (hasRole('admin') || hasRole('system_admin'));
+      allow write: if request.auth != null && hasRole('system_admin');
+    }
+    
+    // Audit log exports
+    match /audit_logs/{exportId} {
+      allow read: if request.auth != null && 
+        (hasRole('compliance_officer') || hasRole('admin'));
+      allow create: if request.auth != null && 
+        (hasRole('compliance_officer') || hasRole('admin'));
+      allow update, delete: if false; // Immutable audit exports
+    }
+    
+    // ==================== TEMPORARY FILES ====================
+    
+    // Temporary uploads (for processing)
+    match /temp/{userId}/{fileName} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == userId;
+      
+      // Auto-delete after 24 hours
+      allow delete: if request.auth != null && 
+        request.auth.uid == userId;
+    }
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    // Check if user has a valid healthcare provider role
+    function hasValidProviderRole() {
+      return request.auth != null && 
+        (hasRole('doctor') || hasRole('nurse') || hasRole('provider') || hasRole('facility_staff'));
+    }
+    
+    // Check if user has a specific role
+    function hasRole(role) {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) &&
+        role in get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.roles;
+    }
+    
+    // Check if patient has given consent for specific purpose
+    function hasPatientConsent(patientId, purpose) {
+      return exists(/databases/$(database)/documents/patient_consents/$(patientId)) &&
+        get(/databases/$(database)/documents/patient_consents/$(patientId)).data.status == 'granted' &&
+        purpose in get(/databases/$(database)/documents/patient_consents/$(patientId)).data.consentType;
+    }
+    
+    // Validate medical document uploads
+    function isValidMedicalDocument(resource) {
+      return resource.size < 50 * 1024 * 1024 && // 50MB max
+        resource.contentType.matches('application/pdf') ||
+        resource.contentType.matches('image/.*') ||
+        resource.contentType.matches('text/.*') ||
+        resource.contentType.matches('application/msword') ||
+        resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+    
+    // Validate consent document uploads
+    function isValidConsentDocument(resource) {
+      return resource.size < 10 * 1024 * 1024 && // 10MB max
+        resource.contentType.matches('application/pdf') ||
+        resource.contentType.matches('image/.*') ||
+        resource.contentType.matches('text/.*');
+    }
+    
+    // Validate profile image uploads
+    function isValidProfileImage(resource) {
+      return resource.size < 5 * 1024 * 1024 && // 5MB max
+        resource.contentType.matches('image/jpeg') ||
+        resource.contentType.matches('image/png') ||
+        resource.contentType.matches('image/webp');
+    }
+    
+    // ==================== SECURITY MEASURES ====================
+    
+    // Prevent access to system files
+    match /{allPaths=**} {
+      // Deny access to hidden files and system files
+      allow read, write: if !allPaths.matches('.*/\\..*') && // No hidden files
+        !allPaths.matches('.*\\.(exe|bat|cmd|com|pif|scr|vbs|js|jar|php|asp|jsp)$') && // No executable files
+        !allPaths.matches('.*\\.(sql|db|sqlite|sqlite3)$'); // No database files
+    }
+    
+    // ==================== DEFAULT DENY ====================
+    
+    // Deny access to any file not explicitly allowed
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -187,7 +187,9 @@ export function addPatientDocument(userId: string, file: File, documentName?: st
 export function removePatientDocument(userId: string, documentId: string): Promise<boolean>;
 export function getPatientDocuments(userId: string): Promise<PatientDocument[]>;
 
-export function addAppointment(userId: string, appointment: any): Promise<boolean>;
+export function addAppointment(userId: string, appointment: any): Promise<any>;
+export function updateAppointment(userId: string, appointmentId: string, updatedAppointmentData: any): Promise<boolean>;
+export function updateAppointmentByFacility(appointmentId: string, patientId: string, updatedAppointmentData: any, facilityId: string): Promise<boolean>;
 export function getPatientAppointments(userId: string): Promise<AppointmentData[]>;
 export function getFacilityAppointments(facilityId: string): Promise<AppointmentData[]>;
 export function updateAppointmentStatus(appointmentId: string, status: string, patientId: string, facilityId: string): Promise<boolean>;

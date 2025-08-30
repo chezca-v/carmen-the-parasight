@@ -1,19 +1,22 @@
 /* public/pages/css/shared-header.css */
 
+/* Import standardized breakpoints */
+@import url('./breakpoints.css');
+
 :root {
-  --primary-color: #0066cc; /* Professional blue */
-  --secondary-color: #6c757d; /* Medium gray */
-  --background-color: #f8f9fa; /* Light gray background */
-  --text-color: #212529; /* Dark text */
-  --text-muted: #6c757d; /* Muted text */
+  --primary-color: #0052cc; /* Darker blue for WCAG AA compliance */
+  --secondary-color: #4a5568; /* Darker gray for better contrast */
+  --background-color: #f7fafc; /* Slightly darker for better contrast */
+  --text-color: #1a202c; /* Darker text for WCAG AA compliance */
+  --text-muted: #4a5568; /* Darker muted text for better contrast */
   --card-bg-color: #fff; /* White cards */
-  --success-color: #28a745; /* Green */
-  --warning-color: #ffc107; /* Yellow */
-  --danger-color: #dc3545; /* Red */
-  --border-color: #dee2e6; /* Light border */
+  --success-color: #059669; /* Darker green for WCAG AA compliance */
+  --warning-color: #d97706; /* Darker orange for WCAG AA compliance */
+  --danger-color: #dc2626; /* Darker red for WCAG AA compliance */
+  --border-color: #e2e8f0; /* Darker border for better contrast */
   --header-bg: rgba(255, 255, 255, 0.95); /* Semi-transparent white */
   --header-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --hover-bg: rgba(0, 102, 204, 0.08);
+  --hover-bg: rgba(0, 82, 204, 0.08); /* Updated to match new primary color */
 }
 
 /* Unified Header */

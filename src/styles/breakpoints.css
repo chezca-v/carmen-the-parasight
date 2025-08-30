@@ -1,0 +1,76 @@
+/* Standardized Breakpoint System for LingapLink */
+
+:root {
+  /* Standard Breakpoints - Mobile First Approach */
+  --breakpoint-xs: 480px;    /* Extra Small - Mobile */
+  --breakpoint-sm: 640px;    /* Small - Large Mobile */
+  --breakpoint-md: 768px;    /* Medium - Tablet */
+  --breakpoint-lg: 1024px;   /* Large - Small Desktop */
+  --breakpoint-xl: 1200px;   /* Extra Large - Desktop */
+  --breakpoint-2xl: 1440px;  /* 2X Large - Large Desktop */
+  
+  /* Container Max Widths */
+  --container-xs: 100%;
+  --container-sm: 540px;
+  --container-md: 720px;
+  --container-lg: 960px;
+  --container-xl: 1140px;
+  --container-2xl: 1320px;
+}
+
+/* Utility Classes for Responsive Visibility */
+.hidden-xs { display: none !important; }
+.hidden-sm { display: none !important; }
+.hidden-md { display: none !important; }
+.hidden-lg { display: none !important; }
+.hidden-xl { display: none !important; }
+.hidden-2xl { display: none !important; }
+
+.visible-xs { display: block !important; }
+.visible-sm { display: block !important; }
+.visible-md { display: block !important; }
+.visible-lg { display: block !important; }
+.visible-xl { display: block !important; }
+.visible-2xl { display: block !important; }
+
+/* Responsive Breakpoint Mixins (for reference) */
+/* 
+  Usage:
+  @media (max-width: var(--breakpoint-xs)) { ... }  // Mobile
+  @media (max-width: var(--breakpoint-sm)) { ... }  // Large Mobile
+  @media (max-width: var(--breakpoint-md)) { ... }  // Tablet
+  @media (max-width: var(--breakpoint-lg)) { ... }  // Small Desktop
+  @media (max-width: var(--breakpoint-xl)) { ... }  // Desktop
+  @media (max-width: var(--breakpoint-2xl)) { ... } // Large Desktop
+*/
+
+/* Standard Media Query Classes */
+@media (max-width: 480px) {
+  .hidden-xs { display: block !important; }
+  .visible-xs { display: none !important; }
+}
+
+@media (max-width: 640px) {
+  .hidden-sm { display: block !important; }
+  .visible-sm { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .hidden-md { display: block !important; }
+  .visible-md { display: none !important; }
+}
+
+@media (max-width: 1024px) {
+  .hidden-lg { display: block !important; }
+  .visible-lg { display: none !important; }
+}
+
+@media (max-width: 1200px) {
+  .hidden-xl { display: block !important; }
+  .visible-xl { display: none !important; }
+}
+
+@media (max-width: 1440px) {
+  .hidden-2xl { display: block !important; }
+  .visible-2xl { display: none !important; }
+}

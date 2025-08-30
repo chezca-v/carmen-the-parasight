@@ -154,11 +154,11 @@ This project is built with a modern technology stack, ensuring a high-quality an
 | 9  | <img src="https://img.shields.io/badge/Firebase-FFCA28?style=flat&logo=firebase&logoColor=black" alt="Firebase" height="20"/>  | Database & Auth | Provides core backend services including Authentication and the Firestore database. |
 | 10 | <img src="https://img.shields.io/badge/Firestore-FFCA28?style=flat&logo=firebase&logoColor=black" alt="Firestore" height="20"/>  | Database | A NoSQL, document-oriented database for storing all application data. |
 | 11 | <img src="https://img.shields.io/badge/Google_Gemini-4285F4?style=flat&logo=google-gemini&logoColor=white" alt="Google Gemini" height="20"/>  | AI & ML | Powers intelligent, AI-driven features and insights within the platform. |
-| 12 | <img src="https://img.shields.io/badge/Ollama-000000?style=flat&logo=ollama&logoColor=white" alt="Ollama" height="20"/>  | AI & ML | Used for running and integrating large language models locally. |
-| 13 | <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" height="20"/>  | Tooling | A next-generation frontend build tool that provides a faster and leaner development experience. |
-| 14 | <img src="https://img.shields.io/badge/ESLint-4B32C3?style=flat&logo=eslint&logoColor=white" alt="ESLint" height="20"/>  | Tooling | Statically analyzes code to quickly find and fix problems, ensuring code quality. |
-| 15 | <img src="https://img.shields.io/badge/Prettier-F7B93E?style=flat&logo=prettier&logoColor=black" alt="Prettier" height="20"/>  | Tooling | An opinionated code formatter that enforces a consistent style across the entire codebase. |
-| 16 | <img src="https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white" alt="Vercel" height="20"/> | Deployment | A cloud platform for deploying the frontend application and serverless functions. |
+
+| 12 | <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" height="20"/>  | Tooling | A next-generation frontend build tool that provides a faster and leaner development experience. |
+| 13 | <img src="https://img.shields.io/badge/ESLint-4B32C3?style=flat&logo=eslint&logoColor=white" alt="ESLint" height="20"/>  | Tooling | Statically analyzes code to quickly find and fix problems, ensuring code quality. |
+| 14 | <img src="https://img.shields.io/badge/Prettier-F7B93E?style=flat&logo=prettier&logoColor=black" alt="Prettier" height="20"/>  | Tooling | An opinionated code formatter that enforces a consistent style across the entire codebase. |
+| 15 | <img src="https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white" alt="Vercel" height="20"/> | Deployment | A cloud platform for deploying the frontend application and serverless functions. |
 
 ## 🔒 Security
 

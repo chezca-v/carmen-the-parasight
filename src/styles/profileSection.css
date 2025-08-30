@@ -1,0 +1,421 @@
+/* ProfileSection Component Styles */
+
+/* CSS Variables for consistent colors */
+:root {
+    --primary-blue: #0040e7;
+    --text-dark: #1f2937;
+    --text-secondary: #6b7280;
+    --border-light: #e5e7eb;
+    --border-radius: 8px;
+    --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Profile header section */
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+}
+
+.profile-header .btn-primary {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    min-width: auto;
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    align-self: flex-start;
+    transition: all 0.3s ease;
+}
+
+.profile-header .btn-primary:hover {
+    background-color: #0040e7 !important;
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Info sections */
+.info-section {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.section-header h3 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.section-header .btn-outline {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    min-width: auto;
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+
+.section-header .btn-outline:hover {
+    background-color: #0040e7 !important;
+    color: white !important;
+    border-color: #0040e7 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Info grid */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.info-item label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-item span {
+    color: var(--text-dark);
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Special handling for long text fields like Patient ID and Email */
+.info-item .long-text {
+    font-family: monospace;
+    font-size: 0.875rem;
+    word-break: break-all;
+    white-space: normal;
+    line-height: 1.4;
+    max-width: 100%;
+}
+
+/* Ensure info grid can handle long content */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Better handling for long text fields */
+.info-item .long-text {
+    font-family: monospace;
+    font-size: 0.875rem;
+    word-break: break-all;
+    white-space: normal;
+    line-height: 1.4;
+    max-width: 100%;
+    display: block;
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
+/* Tab button styles */
+.tab-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.tab-button {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border: 1px solid var(--border-light);
+    border-bottom: none;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    color: var(--text-secondary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab-button:hover {
+    background-color: #0040e7 !important;
+    color: white !important;
+    border-color: #0040e7 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tab-button.active {
+    background-color: #0040e7 !important;
+    color: white !important;
+    border-color: #0040e7 !important;
+    font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .profile-header .btn-primary {
+        align-self: stretch;
+        text-align: center;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .section-header .btn-outline {
+        align-self: stretch;
+        text-align: center;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .tab-nav {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .tab-button {
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-light);
+        text-align: center;
+    }
+}
+
+/* Hover styles for all profile section buttons */
+.info-section .btn-primary:hover,
+.info-section .btn-outline:hover {
+    background-color: #0040e7 !important;
+    color: white !important;
+    border-color: #0040e7 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Documents section button styles */
+.documents-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.documents-header h2 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.documents-header .btn-primary {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    min-width: auto;
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+
+.documents-header .btn-primary:hover {
+    background-color: #0040e7 !important;
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Consultation Header Controls */
+.consultation-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.consultation-header-controls .badge {
+    margin-right: 0;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+}
+
+/* Document Display Styling */
+.documents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.document-item {
+    background: white;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.document-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.document-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+}
+
+.document-info h5 {
+    margin: 0 0 0.5rem 0;
+    color: black !important;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.document-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.document-type,
+.document-size,
+.document-date {
+    background: var(--primary-blue);
+    color: white !important;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.document-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    margin-left: auto !important;
+}
+
+.document-actions .btn {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+    min-width: auto !important;
+    width: auto !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+    float: none !important;
+    clear: none !important;
+}
+
+.document-actions .btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+    transition: all 0.3s ease;
+    display: inline-block !important;
+    float: none !important;
+    clear: none !important;
+}
+
+.document-actions .btn-danger:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+/* Ensure document size and date are white */
+.document-size {
+    color: white !important;
+}
+
+.document-date {
+    color: white !important;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6b7280;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #d1d5db;
+}
+
+.empty-state p {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.empty-state small {
+    color: #9ca3af;
+    font-size: 0.875rem;
+}

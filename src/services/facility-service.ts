@@ -24,13 +24,13 @@ interface Facility {
     sunday: { open: string; close: string; closed: boolean }
   }
   staff: {
-    total: number
+    totalStaff: number
     doctors: number
     nurses: number
     supportStaff: number
   }
   capacity: {
-    beds: number
+    bedCapacity: number
     consultationRooms: number
   }
   languages: string[]
@@ -71,7 +71,7 @@ class FacilityService {
       // Start with a simple query that doesn't require complex indexes
       let q = query(
         collection(this.db, 'facilities'),
-        where('isActive', '==', true),
+        // where('isActive', '==', true), // Temporarily removed to debug
         limit(50)
       )
 
@@ -79,13 +79,68 @@ class FacilityService {
       const facilities: Facility[] = []
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
+        const data = doc.data() as any
+        console.log('🔍 Raw facility data from Firestore:', doc.id, data)
+        
+        // Handle both old format (direct fields) and new format (under facilityInfo)
+        const facilityData = {
+          uid: doc.id,
+          name: data.facilityInfo?.name || data.name || '',
+          type: data.facilityInfo?.type || data.type || '',
+          email: data.facilityInfo?.email || data.email || '',
+          phone: data.facilityInfo?.phone || data.phone || '',
+          address: data.facilityInfo?.address || data.address || '',
+          city: data.facilityInfo?.city || data.city || '',
+          province: data.facilityInfo?.province || data.province || '',
+          postalCode: data.facilityInfo?.postalCode || data.postalCode || '',
+          country: data.facilityInfo?.country || data.country || '',
+          website: data.facilityInfo?.website || data.website || '',
+          description: data.facilityInfo?.description || data.description || '',
+          specialties: data.specialties || [],
+          services: data.services || [],
+          operatingHours: data.operatingHours || {
+            monday: { open: '09:00', close: '17:00', closed: false },
+            tuesday: { open: '09:00', close: '17:00', closed: false },
+            wednesday: { open: '09:00', close: '17:00', closed: false },
+            thursday: { open: '09:00', close: '17:00', closed: false },
+            friday: { open: '09:00', close: '17:00', closed: false },
+            saturday: { open: '09:00', close: '12:00', closed: false },
+            sunday: { open: '09:00', close: '17:00', closed: true }
+          },
+          staff: {
+            totalStaff: data.staff?.totalStaff || data.staff?.total || 0,
+            doctors: data.staff?.doctors || 0,
+            nurses: data.staff?.nurses || 0,
+            supportStaff: data.staff?.supportStaff || 0
+          },
+          capacity: {
+            bedCapacity: data.capacity?.bedCapacity || data.capacity?.beds || 0,
+            consultationRooms: data.capacity?.consultationRooms || 0
+          },
+          languages: data.languages || [],
+          accreditation: data.accreditation || [],
+          insuranceAccepted: data.insuranceAccepted || [],
+          licenseNumber: data.licenseNumber || '',
+          isActive: data.isActive !== false,
+          isSearchable: data.isSearchable !== false,
+          isVerified: data.isVerified || false,
+          profileComplete: data.profileComplete || false,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          lastLoginAt: data.lastLoginAt,
+          emailVerified: data.emailVerified || false,
+          authProvider: data.authProvider || 'email'
+        } as Facility
+        
         // Only include facilities that are searchable
-        if (data.isSearchable !== false) {
-          facilities.push({
-            ...data,
-            uid: doc.id
-          })
+        console.log('🔍 Facility searchable check:', facilityData.isSearchable, 'for facility:', facilityData.name)
+        console.log('🔍 Facility staff data:', facilityData.staff)
+        console.log('🔍 Facility capacity data:', facilityData.capacity)
+        
+        if (facilityData.isSearchable !== false) {
+          facilities.push(facilityData)
+        } else {
+          console.log('❌ Facility filtered out due to isSearchable:', facilityData.name)
         }
       })
 
@@ -160,11 +215,59 @@ class FacilityService {
       const facilitySnap = await getDoc(facilityRef)
 
       if (facilitySnap.exists()) {
-        const data = facilitySnap.data() as Facility
-        return {
-          ...data,
-          uid: facilitySnap.id
-        }
+        const data = facilitySnap.data() as any
+        
+        // Handle both old format (direct fields) and new format (under facilityInfo)
+        const facilityData = {
+          uid: facilitySnap.id,
+          name: data.facilityInfo?.name || data.name || '',
+          type: data.facilityInfo?.type || data.type || '',
+          email: data.facilityInfo?.email || data.email || '',
+          phone: data.facilityInfo?.phone || data.phone || '',
+          address: data.facilityInfo?.address || data.address || '',
+          city: data.facilityInfo?.city || data.city || '',
+          province: data.facilityInfo?.province || data.province || '',
+          postalCode: data.facilityInfo?.postalCode || data.postalCode || '',
+          country: data.facilityInfo?.country || data.country || '',
+          website: data.facilityInfo?.website || data.website || '',
+          description: data.facilityInfo?.description || data.description || '',
+          specialties: data.specialties || [],
+          services: data.services || [],
+          operatingHours: data.operatingHours || {
+            monday: { open: '09:00', close: '17:00', closed: false },
+            tuesday: { open: '09:00', close: '17:00', closed: false },
+            wednesday: { open: '09:00', close: '17:00', closed: false },
+            thursday: { open: '09:00', close: '17:00', closed: false },
+            friday: { open: '09:00', close: '17:00', closed: false },
+            saturday: { open: '09:00', close: '12:00', closed: false },
+            sunday: { open: '09:00', close: '17:00', closed: true }
+          },
+          staff: {
+            totalStaff: data.staff?.totalStaff || data.staff?.total || 0,
+            doctors: data.staff?.doctors || 0,
+            nurses: data.staff?.nurses || 0,
+            supportStaff: data.staff?.supportStaff || 0
+          },
+          capacity: {
+            bedCapacity: data.capacity?.bedCapacity || data.capacity?.beds || 0,
+            consultationRooms: data.capacity?.consultationRooms || 0
+          },
+          languages: data.languages || [],
+          accreditation: data.accreditation || [],
+          insuranceAccepted: data.insuranceAccepted || [],
+          licenseNumber: data.licenseNumber || '',
+          isActive: data.isActive !== false,
+          isSearchable: data.isSearchable !== false,
+          isVerified: data.isVerified || false,
+          profileComplete: data.profileComplete || false,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          lastLoginAt: data.lastLoginAt,
+          emailVerified: data.emailVerified || false,
+          authProvider: data.authProvider || 'email'
+        } as Facility
+        
+        return facilityData
       }
 
       return null
@@ -189,9 +292,10 @@ class FacilityService {
       const types = new Set<string>()
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
-        if (data.type) {
-          types.add(data.type)
+        const data = doc.data() as any
+        const type = data.facilityInfo?.type || data.type
+        if (type) {
+          types.add(type)
         }
       })
 
@@ -217,9 +321,10 @@ class FacilityService {
       const cities = new Set<string>()
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
-        if (data.city) {
-          cities.add(data.city)
+        const data = doc.data() as any
+        const city = data.facilityInfo?.city || data.city
+        if (city) {
+          cities.add(city)
         }
       })
 
@@ -245,9 +350,10 @@ class FacilityService {
       const provinces = new Set<string>()
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
-        if (data.province) {
-          provinces.add(data.province)
+        const data = doc.data() as any
+        const province = data.facilityInfo?.province || data.province
+        if (province) {
+          provinces.add(province)
         }
       })
 
@@ -273,9 +379,10 @@ class FacilityService {
       const specialties = new Set<string>()
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
-        if (data.specialties) {
-          data.specialties.forEach(specialty => specialties.add(specialty))
+        const data = doc.data() as any
+        const facilitySpecialties = data.specialties || []
+        if (facilitySpecialties.length > 0) {
+          facilitySpecialties.forEach((specialty: string) => specialties.add(specialty))
         }
       })
 
@@ -301,9 +408,10 @@ class FacilityService {
       const services = new Set<string>()
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
-        if (data.services) {
-          data.services.forEach(service => services.add(service))
+        const data = doc.data() as any
+        const facilityServices = data.services || []
+        if (facilityServices.length > 0) {
+          facilityServices.forEach((service: string) => services.add(service))
         }
       })
 
@@ -332,11 +440,59 @@ class FacilityService {
       const facilities: Facility[] = []
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as Facility
-        facilities.push({
-          ...data,
-          uid: doc.id
-        })
+        const data = doc.data() as any
+        
+        // Handle both old format (direct fields) and new format (under facilityInfo)
+        const facilityData = {
+          uid: doc.id,
+          name: data.facilityInfo?.name || data.name || '',
+          type: data.facilityInfo?.type || data.type || '',
+          email: data.facilityInfo?.email || data.email || '',
+          phone: data.facilityInfo?.phone || data.phone || '',
+          address: data.facilityInfo?.address || data.address || '',
+          city: data.facilityInfo?.city || data.city || '',
+          province: data.facilityInfo?.province || data.province || '',
+          postalCode: data.facilityInfo?.postalCode || data.postalCode || '',
+          country: data.facilityInfo?.country || data.country || '',
+          website: data.facilityInfo?.website || data.website || '',
+          description: data.facilityInfo?.description || data.description || '',
+          specialties: data.specialties || [],
+          services: data.services || [],
+          operatingHours: data.operatingHours || {
+            monday: { open: '09:00', close: '17:00', closed: false },
+            tuesday: { open: '09:00', close: '17:00', closed: false },
+            wednesday: { open: '09:00', close: '17:00', closed: false },
+            thursday: { open: '09:00', close: '17:00', closed: false },
+            friday: { open: '09:00', close: '17:00', closed: false },
+            saturday: { open: '09:00', close: '12:00', closed: false },
+            sunday: { open: '09:00', close: '17:00', closed: true }
+          },
+          staff: {
+            totalStaff: data.staff?.totalStaff || data.staff?.total || 0,
+            doctors: data.staff?.doctors || 0,
+            nurses: data.staff?.nurses || 0,
+            supportStaff: data.staff?.supportStaff || 0
+          },
+          capacity: {
+            bedCapacity: data.capacity?.bedCapacity || data.capacity?.beds || 0,
+            consultationRooms: data.capacity?.consultationRooms || 0
+          },
+          languages: data.languages || [],
+          accreditation: data.accreditation || [],
+          insuranceAccepted: data.insuranceAccepted || [],
+          licenseNumber: data.licenseNumber || '',
+          isActive: data.isActive !== false,
+          isSearchable: data.isSearchable !== false,
+          isVerified: data.isVerified || false,
+          profileComplete: data.profileComplete || false,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          lastLoginAt: data.lastLoginAt,
+          emailVerified: data.emailVerified || false,
+          authProvider: data.authProvider || 'email'
+        } as Facility
+        
+        facilities.push(facilityData)
       })
 
       return facilities

@@ -1,7 +1,11 @@
 /* Partner SignUp Styles */
+
+/* Import standardized breakpoints */
+@import url('./breakpoints.css');
+
 .partner-signup-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-blue);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -66,7 +70,7 @@
 
 .progress-fill {
   height: 4px;
-  background: linear-gradient(90deg, #667eea, #764ba2);
+  background: var(--primary-blue);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -92,9 +96,9 @@
 }
 
 .step-indicator.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--primary-blue);
   color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 64, 231, 0.4);
 }
 
 /* Form Styles */
@@ -147,8 +151,8 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(0, 64, 231, 0.1);
 }
 
 .form-group input::placeholder,
@@ -236,14 +240,14 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--primary-blue);
   color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 64, 231, 0.4);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 64, 231, 0.6);
 }
 
 .btn-primary:disabled {
@@ -254,12 +258,12 @@
 
 .btn-outline {
   background: white;
-  color: #667eea;
-  border: 2px solid #667eea;
+  color: var(--primary-blue);
+  border: 2px solid var(--primary-blue);
 }
 
 .btn-outline:hover {
-  background: #667eea;
+  background: var(--primary-blue);
   color: white;
 }
 

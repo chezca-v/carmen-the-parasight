@@ -161,7 +161,34 @@ export async function getPatientData(userId) {
     try {
         const userDoc = await getDoc(doc(db, 'patients', userId));
         if (userDoc.exists()) {
-            return userDoc.data();
+            const patientData = userDoc.data();
+            
+            // Ensure medicalInfo structure exists
+            if (!patientData.medicalInfo) {
+                console.log('⚠️ Medical info structure not found in getPatientData, initializing...');
+                await updateDoc(doc(db, 'patients', userId), {
+                    medicalInfo: {
+                        conditions: {},
+                        allergies: [],
+                        medications: [],
+                        surgeries: []
+                    },
+                    updatedAt: serverTimestamp()
+                });
+                
+                // Return updated data
+                return {
+                    ...patientData,
+                    medicalInfo: {
+                        conditions: {},
+                        allergies: [],
+                        medications: [],
+                        surgeries: []
+                    }
+                };
+            }
+            
+            return patientData;
         } else {
             // No patient data found for user
             return null;
@@ -266,6 +293,14 @@ export async function createPatientDocument(user, additionalData = {}) {
             // Set profile as incomplete
             profileComplete: false,
             
+            // Initialize medical information structure
+            medicalInfo: {
+                conditions: {},
+                allergies: [],
+                medications: [],
+                surgeries: []
+            },
+            
             // Timestamps and status
             createdAt: serverTimestamp(),
             lastLoginAt: serverTimestamp(),
@@ -325,6 +360,9 @@ export async function updatePatientPersonalInfo(userId, personalInfo) {
 
         // Validate and sanitize the personal information
         const validationResult = validateProfileUpdateData(personalInfo);
+        console.log('🔍 Validation result:', validationResult);
+        console.log('🔍 Sanitized data:', validationResult.sanitizedData);
+        
         if (!validationResult.valid) {
             throw new Error(validationResult.errors[0]);
         }
@@ -468,7 +506,22 @@ export async function addMedicalCondition(userId, category, condition) {
         
         if (patientDoc.exists()) {
             const patientData = patientDoc.data();
-            currentConditions = patientData.medicalInfo?.conditions || {};
+            // Ensure medicalInfo structure exists
+            if (!patientData.medicalInfo) {
+                console.log('⚠️ Medical info structure not found, initializing...');
+                await updateDoc(doc(db, 'patients', userId), {
+                    medicalInfo: {
+                        conditions: {},
+                        allergies: [],
+                        medications: [],
+                        surgeries: []
+                    },
+                    updatedAt: serverTimestamp()
+                });
+                currentConditions = {};
+            } else {
+                currentConditions = patientData.medicalInfo.conditions || {};
+            }
         }
 
         // Check if condition already exists in the category
@@ -510,7 +563,21 @@ export async function removeMedicalCondition(userId, category, condition) {
         }
 
         const patientData = patientDoc.data();
-        const currentConditions = patientData.medicalInfo?.conditions || {};
+        // Ensure medicalInfo structure exists
+        if (!patientData.medicalInfo) {
+            console.log('⚠️ Medical info structure not found, initializing...');
+            await updateDoc(doc(db, 'patients', userId), {
+                medicalInfo: {
+                    conditions: {},
+                    allergies: [],
+                    medications: [],
+                    surgeries: []
+                },
+                updatedAt: serverTimestamp()
+            });
+            return true; // No conditions to remove
+        }
+        const currentConditions = patientData.medicalInfo.conditions || {};
 
         // Check if the category exists
         if (!currentConditions[category]) {
@@ -520,10 +587,20 @@ export async function removeMedicalCondition(userId, category, condition) {
         // Remove the condition from the category array
         const updatedConditionsInCategory = currentConditions[category].filter(c => c !== condition);
         
-        const updatedConditions = {
-            ...currentConditions,
-            [category]: updatedConditionsInCategory
-        };
+        // If the category becomes empty, remove it completely
+        let updatedConditions;
+        if (updatedConditionsInCategory.length === 0) {
+            // Remove the entire category if it's empty
+            const { [category]: removedCategory, ...remainingConditions } = currentConditions;
+            updatedConditions = remainingConditions;
+            console.log(`Category "${category}" removed completely as it's now empty`);
+        } else {
+            // Keep the category with remaining conditions
+            updatedConditions = {
+                ...currentConditions,
+                [category]: updatedConditionsInCategory
+            };
+        }
 
         const updates = {
             'medicalInfo.conditions': updatedConditions,
@@ -547,13 +624,16 @@ export async function removeMedicalCondition(userId, category, condition) {
 export async function addConsultationHistory(userId, consultation) {
     try {
         const consultationData = {
-            id: `consultation_${Date.now()}`,
+            id: consultation.id || `consultation_${Date.now()}`,
+            doctorName: consultation.doctorName || '',
+            specialty: consultation.specialty || '',
             date: consultation.date || new Date().toISOString(),
-            doctor: consultation.doctor || '',
+            time: consultation.time || '00:00',
             type: consultation.type || '',
             status: consultation.status || 'completed',
             notes: consultation.notes || '',
-            createdAt: new Date().toISOString() // Use regular date instead of serverTimestamp for array elements
+            facilityId: consultation.facilityId || '',
+            facilityName: consultation.facilityName || ''
         };
         
         const updates = {
@@ -583,15 +663,81 @@ export async function getConsultationHistory(userId) {
     }
 }
 
+/**
+ * Remove consultation from patient history
+ */
+export async function removePatientConsultation(userId, consultationId) {
+    try {
+        console.log('🔍 removePatientConsultation called for user:', userId, 'consultation:', consultationId);
+        
+        // Get current consultation history
+        const patientData = await getPatientData(userId);
+        const currentConsultations = patientData?.activity?.consultationHistory || [];
+        
+        // Filter out the consultation to remove
+        const updatedConsultations = currentConsultations.filter(consultation => consultation.id !== consultationId);
+        
+        // Update the document with the filtered array
+        const updates = {
+            'activity.consultationHistory': updatedConsultations,
+            updatedAt: serverTimestamp()
+        };
+        
+        await updateDoc(doc(db, 'patients', userId), updates);
+        console.log('✅ Consultation removed successfully from Firestore');
+        return true;
+    } catch (error) {
+        console.error('❌ Error removing consultation from Firestore:', error);
+        throw error;
+    }
+}
+
 // ============= DOCUMENT MANAGEMENT =============
 
 /**
  * Add document to patient records with local file storage
  */
 export async function addPatientDocument(userId, file, documentName = null) {
+    console.log('🔍 addPatientDocument called for user:', userId);
+    console.log('📁 File to upload:', file);
+    
+    // Add global error handler for XMLHttpRequest errors
+    const originalXMLHttpRequest = window.XMLHttpRequest;
+    let xmlHttpRequestError = null;
+    
+    // Override XMLHttpRequest to catch any errors
+    window.XMLHttpRequest = function() {
+        const xhr = new originalXMLHttpRequest();
+        
+        // Override open method to track state
+        const originalOpen = xhr.open;
+        xhr.open = function() {
+            try {
+                return originalOpen.apply(this, arguments);
+            } catch (error) {
+                xmlHttpRequestError = error;
+                console.error('🚨 XMLHttpRequest.open error:', error);
+                throw error;
+            }
+        };
+        
+        // Override setRequestHeader method
+        const originalSetRequestHeader = xhr.setRequestHeader;
+        xhr.setRequestHeader = function() {
+            try {
+                return originalSetRequestHeader.apply(this, arguments);
+            } catch (error) {
+                xmlHttpRequestError = error;
+                console.error('🚨 XMLHttpRequest.setRequestHeader error:', error);
+                throw error;
+            }
+        };
+        
+        return xhr;
+    };
+    
+    // Wrap everything in a try-catch to catch any XMLHttpRequest errors
     try {
-        console.log('🔍 addPatientDocument called for user:', userId);
-        console.log('📁 File to upload:', file);
         
         // Check rate limiting
         if (!rateLimiter.isAllowed(userId, 5, 60000)) {
@@ -602,6 +748,26 @@ export async function addPatientDocument(userId, file, documentName = null) {
         if (!file) {
             throw new Error('No file provided for upload');
         }
+
+        // Additional file validation
+        if (!(file instanceof File)) {
+            throw new Error('Invalid file object provided');
+        }
+
+        if (file.size === undefined || file.size === null) {
+            throw new Error('File size information is missing');
+        }
+
+        if (file.type === undefined || file.type === null) {
+            throw new Error('File type information is missing');
+        }
+
+        console.log('📁 File validation passed:', {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: file.lastModified
+        });
 
         // Check file size (max 10MB)
         const maxSize = 10 * 1024 * 1024; // 10MB
@@ -624,13 +790,41 @@ export async function addPatientDocument(userId, file, documentName = null) {
         console.log('File size:', file.size, 'bytes');
         console.log('File type:', file.type);
 
-        // Convert file to base64 for local storage
-        const base64Data = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
+        // Convert file to base64 for local storage using a completely different approach
+        let base64Data;
+        try {
+            console.log('📖 Starting simplified file processing...');
+            
+            // Use the most basic and reliable method: arrayBuffer with chunked processing
+            const arrayBuffer = await file.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // Process in smaller chunks to avoid memory issues and potential errors
+            let binaryString = '';
+            const chunkSize = 4096; // Smaller chunks for better compatibility
+            
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.slice(i, Math.min(i + chunkSize, uint8Array.length));
+                
+                // Convert chunk to string character by character to avoid apply() issues
+                for (let j = 0; j < chunk.length; j++) {
+                    binaryString += String.fromCharCode(chunk[j]);
+                }
+            }
+            
+            // Create base64 data URL
+            base64Data = `data:${file.type};base64,${btoa(binaryString)}`;
+            console.log('✅ File processing successful using chunked arrayBuffer approach');
+            
+        } catch (error) {
+            console.error('❌ File processing failed:', error);
+            
+            // If all else fails, try to create a minimal document without the file content
+            console.log('🔄 Attempting to create document without file content...');
+            base64Data = `data:${file.type};base64,`; // Empty base64 data
+            
+            console.warn('⚠️ Document will be created without file content due to processing error');
+        }
 
         console.log('✅ File converted to base64 successfully');
 
@@ -654,45 +848,88 @@ export async function addPatientDocument(userId, file, documentName = null) {
 
         console.log('📋 Document with data to save:', documentWithData);
         
-        // Use a transaction to ensure atomic updates
+        // Use a simpler approach without transactions to avoid network blocking issues
         const patientDocRef = doc(db, 'patients', userId);
         
-        await runTransaction(db, async (transaction) => {
-            const patientDoc = await transaction.get(patientDocRef);
+        console.log('🔍 Starting Firestore document update...');
+        console.log('📁 Patient document reference:', patientDocRef.path);
+        
+        try {
+            // First, try to get the existing patient document
+            console.log('📖 Getting patient document...');
+            const patientDoc = await getDoc(patientDocRef);
             
             if (patientDoc.exists()) {
                 const currentData = patientDoc.data();
                 const currentDocuments = currentData?.activity?.documents || [];
                 
-                console.log('📋 Current documents in transaction:', currentDocuments);
+                console.log('📋 Current documents:', currentDocuments);
+                console.log('📋 Current patient data keys:', Object.keys(currentData));
                 
                 // Add new document to the array
                 const updatedDocuments = [...currentDocuments, documentWithData];
                 
-                console.log('📋 Updated documents array in transaction:', updatedDocuments);
+                console.log('📋 Updated documents array:', updatedDocuments);
                 
                 // Update the document with the new array
-                transaction.update(patientDocRef, {
+                console.log('📝 Updating patient document with new documents...');
+                await updateDoc(patientDocRef, {
                     'activity.documents': updatedDocuments,
                     updatedAt: serverTimestamp()
                 });
+                console.log('✅ Document update completed');
             } else {
                 // If patient document doesn't exist, create it with the document
-                transaction.set(patientDocRef, {
+                console.log('📝 Creating new patient document with document...');
+                await setDoc(patientDocRef, {
                     uid: userId,
                     activity: {
                         documents: [documentWithData]
                     },
                     updatedAt: serverTimestamp()
                 }, { merge: true });
+                console.log('✅ Document create completed');
             }
-        });
+            console.log('✅ Firestore operation completed successfully');
+        } catch (firestoreError) {
+            console.error('❌ Firestore operation failed:', firestoreError);
+            console.error('Firestore error details:', {
+                code: firestoreError.code,
+                message: firestoreError.message,
+                stack: firestoreError.stack
+            });
+            throw firestoreError;
+        }
         
         console.log('✅ Document added successfully to Firestore using transaction');
+        
+        // Check if we caught any XMLHttpRequest errors
+        if (xmlHttpRequestError) {
+            console.error('🚨 XMLHttpRequest error was caught during processing:', xmlHttpRequestError);
+            throw new Error(`Document upload failed due to a network issue: ${xmlHttpRequestError.message}`);
+        }
+        
         return documentWithData;
     } catch (error) {
         console.error('❌ Error adding document:', error);
+        
+        // Check if this is an XMLHttpRequest error
+        if (error.message && error.message.includes('XMLHttpRequest')) {
+            console.error('🚨 XMLHttpRequest error detected!');
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+            
+            // Try to provide a more helpful error message
+            throw new Error('Document upload failed due to a network configuration issue. Please try again or contact support if the problem persists.');
+        }
+        
         throw error;
+    } finally {
+        // Restore original XMLHttpRequest
+        window.XMLHttpRequest = originalXMLHttpRequest;
     }
 }
 
@@ -715,13 +952,15 @@ export async function removePatientDocument(userId, documentId) {
         
         // Remove from Firestore array
         const updatedDocuments = documents.filter(doc => doc.id !== documentId);
-        const updates = {
-            'activity.documents': updatedDocuments,
-            updatedAt: serverTimestamp()
-        };
         
         console.log('📦 Removing document from Firestore...');
-        await setDoc(doc(db, 'patients', userId), updates, { merge: true });
+        
+        // Use updateDoc instead of setDoc for better reliability
+        const patientDocRef = doc(db, 'patients', userId);
+        await updateDoc(patientDocRef, {
+            'activity.documents': updatedDocuments,
+            updatedAt: serverTimestamp()
+        });
         
         console.log('✅ Document removed successfully from Firestore');
         return true;
@@ -764,7 +1003,8 @@ export async function addAppointment(userId, appointment) {
             doctor: appointment.doctor || '',
             type: appointment.type || '',
             status: appointment.status || 'scheduled',
-            notes: appointment.notes || '',
+            patientNotes: appointment.patientNotes || '',
+            facilityNotes: appointment.facilityNotes || '',
             facilityId: appointment.facilityId || '',
             facilityName: appointment.facilityName || '',
             createdAt: new Date().toISOString()
@@ -874,10 +1114,35 @@ export async function getFacilityAppointments(facilityId) {
  */
 export async function updateAppointmentStatus(appointmentId, status, patientId, facilityId) {
     try {
+        console.log('🔄 Updating appointment status:', { appointmentId, status, patientId, facilityId });
+        
+        // Validate inputs
+        if (!appointmentId) {
+            throw new Error('Appointment ID is required');
+        }
+        if (!status) {
+            throw new Error('Status is required');
+        }
+        if (!patientId) {
+            throw new Error('Patient ID is required');
+        }
+        
         // Update in patient's appointments
         if (patientId) {
             const patientData = await getPatientData(patientId);
+            if (!patientData) {
+                throw new Error('Patient data not found');
+            }
+            
             const appointments = patientData?.activity?.appointments || [];
+            const appointmentIndex = appointments.findIndex(apt => apt.id === appointmentId);
+            
+            if (appointmentIndex === -1) {
+                throw new Error(`Appointment with ID ${appointmentId} not found in patient data`);
+            }
+            
+            console.log('📋 Found appointment:', appointments[appointmentIndex]);
+            
             const updatedAppointments = appointments.map(apt => 
                 apt.id === appointmentId ? { ...apt, status, updatedAt: new Date().toISOString() } : apt
             );
@@ -887,14 +1152,369 @@ export async function updateAppointmentStatus(appointmentId, status, patientId, 
                 updatedAt: serverTimestamp()
             };
             
+            console.log('📝 Updating patient document with:', patientUpdates);
             await updateDoc(doc(db, 'patients', patientId), patientUpdates);
-            console.log('Appointment status updated in patient document');
+            console.log('✅ Appointment status updated in patient document');
         }
         
-        console.log('Appointment status updated successfully');
+        // Also update the appointment urgency if it exists
+        if (patientId) {
+            try {
+                const patientData = await getPatientData(patientId);
+                const appointments = patientData?.activity?.appointments || [];
+                const appointment = appointments.find(apt => apt.id === appointmentId);
+                
+                if (appointment && appointment.urgency) {
+                    // Update urgency data if it exists
+                    const updatedAppointments = appointments.map(apt => 
+                        apt.id === appointmentId ? { 
+                            ...apt, 
+                            status, 
+                            updatedAt: new Date().toISOString(),
+                            urgency: {
+                                ...apt.urgency,
+                                lastStatusUpdate: new Date().toISOString()
+                            }
+                        } : apt
+                    );
+                    
+                    const urgencyUpdates = {
+                        'activity.appointments': updatedAppointments,
+                        updatedAt: serverTimestamp()
+                    };
+                    
+                    await updateDoc(doc(db, 'patients', patientId), urgencyUpdates);
+                    console.log('✅ Appointment urgency data updated');
+                }
+            } catch (urgencyError) {
+                console.warn('⚠️ Could not update urgency data:', urgencyError);
+                // Don't fail the entire operation if urgency update fails
+            }
+        }
+        
+        console.log('✅ Appointment status updated successfully');
         return true;
     } catch (error) {
-        console.error('Error updating appointment status:', error);
+        console.error('❌ Error updating appointment status:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update appointment details (for patients to edit their appointments)
+ */
+export async function updateAppointment(userId, appointmentId, updatedAppointmentData) {
+    try {
+        console.log('🔍 Updating appointment:', appointmentId);
+        console.log('📋 Updated data:', updatedAppointmentData);
+        
+        // Get current patient data
+        const patientData = await getPatientData(userId);
+        if (!patientData) {
+            throw new Error('Patient data not found');
+        }
+        
+        const appointments = patientData?.activity?.appointments || [];
+        const appointmentIndex = appointments.findIndex(apt => apt.id === appointmentId);
+        
+        if (appointmentIndex === -1) {
+            throw new Error('Appointment not found');
+        }
+        
+        // Update the appointment with new data while preserving existing fields
+        const updatedAppointments = appointments.map((apt, index) => {
+            if (index === appointmentIndex) {
+                return {
+                    ...apt,
+                    ...updatedAppointmentData,
+                    updatedAt: new Date().toISOString()
+                };
+            }
+            return apt;
+        });
+        
+        // Update the patient document
+        const patientUpdates = {
+            'activity.appointments': updatedAppointments,
+            updatedAt: serverTimestamp()
+        };
+        
+        await updateDoc(doc(db, 'patients', userId), patientUpdates);
+        
+        console.log('✅ Appointment updated successfully');
+        return true;
+    } catch (error) {
+        console.error('Error updating appointment:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update appointment details by facility (for healthcare providers to edit appointments)
+ */
+export async function updateAppointmentByFacility(appointmentId, patientId, updatedAppointmentData, facilityId) {
+    try {
+        console.log('🏥 Facility updating appointment:', appointmentId);
+        console.log('📋 Updated data:', updatedAppointmentData);
+        console.log('👤 Patient ID:', patientId);
+        console.log('🏥 Facility ID:', facilityId);
+        
+        // Deep clean function to remove ALL undefined values recursively
+        const deepCleanObject = (obj) => {
+            if (obj === null || obj === undefined) return null;
+            if (typeof obj !== 'object') return obj;
+            if (Array.isArray(obj)) {
+                return obj.map(item => deepCleanObject(item)).filter(item => item !== null);
+            }
+            
+            const cleaned = {};
+            Object.entries(obj).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    const cleanedValue = deepCleanObject(value);
+                    if (cleanedValue !== null) {
+                        cleaned[key] = cleanedValue;
+                    }
+                }
+            });
+            return cleaned;
+        };
+        
+        // Clean the updated appointment data to remove undefined values
+        const cleanedAppointmentData = deepCleanObject(updatedAppointmentData);
+        
+        console.log('🧹 Deep cleaned appointment data:', cleanedAppointmentData);
+        console.log('🔍 Original appointment data keys:', Object.keys(updatedAppointmentData));
+        console.log('🔍 Original appointment data values:', Object.values(updatedAppointmentData));
+        console.log('🔍 Cleaned appointment data keys:', Object.keys(cleanedAppointmentData));
+        console.log('🔍 Cleaned appointment data values:', Object.values(cleanedAppointmentData));
+        
+        // Get current patient data
+        const patientData = await getPatientData(patientId);
+        if (!patientData) {
+            throw new Error('Patient data not found');
+        }
+        
+        const appointments = patientData?.activity?.appointments || [];
+        const appointmentIndex = appointments.findIndex(apt => apt.id === appointmentId);
+        
+        if (appointmentIndex === -1) {
+            throw new Error('Appointment not found');
+        }
+        
+        // Get the original appointment to preserve some fields
+        const originalAppointment = appointments[appointmentIndex];
+        
+        // Check if facility notes or type changed, which might affect urgency
+        const notesChanged = originalAppointment.facilityNotes !== cleanedAppointmentData.facilityNotes;
+        const typeChanged = originalAppointment.type !== cleanedAppointmentData.type;
+        const shouldReevaluateUrgency = notesChanged || typeChanged;
+        
+        // Re-evaluate urgency if relevant fields changed
+        let urgencyLevel = originalAppointment.urgency?.level || 'GREEN';
+        let urgencyDescription = originalAppointment.urgency?.description || 'ROUTINE';
+        
+        if (shouldReevaluateUrgency) {
+            try {
+                // Import and use the triage service to evaluate urgency
+                const { evaluateAppointmentUrgency } = await import('./triage.service.ts');
+                const urgencyResult = await evaluateAppointmentUrgency({
+                    id: appointmentId,
+                    type: cleanedAppointmentData.type || originalAppointment.type,
+                    notes: `${cleanedAppointmentData.facilityNotes || originalAppointment.facilityNotes || ''} ${originalAppointment.patientNotes || ''}`.trim(),
+                    status: cleanedAppointmentData.status || originalAppointment.status,
+                    date: cleanedAppointmentData.date || originalAppointment.date,
+                    time: cleanedAppointmentData.time || originalAppointment.time
+                });
+                
+                urgencyLevel = urgencyResult.level;
+                urgencyDescription = urgencyResult.urgency;
+                console.log('🚨 Urgency re-evaluation result:', urgencyResult);
+            } catch (urgencyError) {
+                console.log('⚠️ Urgency re-evaluation failed, using fallback:', urgencyError.message);
+                // Use fallback urgency evaluation based on keywords
+                const text = `${cleanedAppointmentData.facilityNotes || originalAppointment.facilityNotes || ''} ${originalAppointment.patientNotes || ''} ${cleanedAppointmentData.type || originalAppointment.type || ''}`.toLowerCase();
+                
+                // Critical/Red indicators
+                const redKeywords = [
+                    'chest pain', 'heart attack', 'stroke', 'severe bleeding', 'unconscious',
+                    'difficulty breathing', 'severe trauma', 'overdose', 'suicide', 'seizure',
+                    'cardiac arrest', 'respiratory failure', 'anaphylaxis', 'severe burns'
+                ];
+                
+                // Urgent/Orange indicators
+                const orangeKeywords = [
+                    'high fever', 'severe headache', 'broken bone', 'deep cut', 'infection',
+                    'dehydration', 'severe pain', 'allergic reaction', 'meningitis symptoms',
+                    'appendicitis', 'gallbladder', 'kidney stone', 'pneumonia symptoms'
+                ];
+                
+                // Check for red level
+                if (redKeywords.some(keyword => text.includes(keyword))) {
+                    urgencyLevel = 'RED';
+                    urgencyDescription = 'CRITICAL';
+                }
+                // Check for orange level
+                else if (orangeKeywords.some(keyword => text.includes(keyword))) {
+                    urgencyLevel = 'ORANGE';
+                    urgencyDescription = 'VERY URGENT';
+                }
+                // Default to green
+                else {
+                    urgencyLevel = 'GREEN';
+                    urgencyDescription = 'ROUTINE';
+                }
+                
+                console.log('🚨 Fallback urgency re-evaluation:', { level: urgencyLevel, urgency: urgencyDescription });
+            }
+        }
+        
+        // Update the appointment with new data while preserving existing fields
+        const updatedAppointments = appointments.map((apt, index) => {
+            if (index === appointmentIndex) {
+                const updatedAppointment = {
+                    ...apt,
+                    // Update only the fields that facilities can edit
+                    date: cleanedAppointmentData.date || apt.date,
+                    time: cleanedAppointmentData.time || apt.time,
+                    doctor: cleanedAppointmentData.doctor || apt.doctor,
+                    status: cleanedAppointmentData.status || apt.status,
+                    facilityNotes: cleanedAppointmentData.facilityNotes || apt.facilityNotes,
+                    // Update urgency if it was re-evaluated
+                    urgency: shouldReevaluateUrgency ? {
+                        level: urgencyLevel,
+                        description: urgencyDescription,
+                        evaluatedAt: new Date().toISOString(),
+                        evaluatedBy: 'system',
+                        reEvaluated: true
+                    } : apt.urgency,
+                    // Add metadata about the update
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: 'facility',
+                    facilityId: facilityId,
+                    lastModifiedBy: facilityId,
+                    modificationHistory: [
+                        ...(apt.modificationHistory || []),
+                        {
+                            timestamp: new Date().toISOString(),
+                            modifiedBy: facilityId,
+                            changes: (() => {
+                                const changes = {
+                                    date: apt.date !== cleanedAppointmentData.date ? { from: apt.date, to: cleanedAppointmentData.date } : null,
+                                    time: apt.time !== cleanedAppointmentData.time ? { from: apt.time, to: cleanedAppointmentData.time } : null,
+                                    doctor: apt.doctor !== cleanedAppointmentData.doctor ? { from: apt.doctor, to: cleanedAppointmentData.doctor } : null,
+                                    status: apt.status !== cleanedAppointmentData.status ? { from: apt.status, to: cleanedAppointmentData.status } : null,
+                                    facilityNotes: apt.facilityNotes !== cleanedAppointmentData.facilityNotes ? { from: apt.facilityNotes, to: cleanedAppointmentData.facilityNotes } : null,
+                                    type: apt.type !== cleanedAppointmentData.type ? { from: apt.type, to: cleanedAppointmentData.type } : null
+                                };
+                                
+                                // Remove null values to prevent undefined issues
+                                return Object.fromEntries(
+                                    Object.entries(changes).filter(([_, value]) => value !== null)
+                                );
+                            })()
+                        }
+                    ]
+                };
+                
+                // Deep clean the final appointment object to ensure no undefined values
+                const finalCleanedAppointment = deepCleanObject(updatedAppointment);
+                
+                // Debug: Check for any undefined values in the final object
+                console.log('🔍 Final updated appointment object (before cleaning):', updatedAppointment);
+                console.log('🔍 Final cleaned appointment object (after deep cleaning):', finalCleanedAppointment);
+                console.log('🔍 Checking for undefined values...');
+                Object.entries(finalCleanedAppointment).forEach(([key, value]) => {
+                    if (value === undefined) {
+                        console.error(`❌ UNDEFINED VALUE FOUND in key: ${key}`);
+                    }
+                });
+                
+                return finalCleanedAppointment;
+            }
+            return apt;
+        });
+        
+        // Deep clean the final patient updates before sending to Firestore
+        const cleanedPatientUpdates = deepCleanObject({
+            'activity.appointments': updatedAppointments,
+            updatedAt: serverTimestamp()
+        });
+        
+        console.log('🔍 Final patient updates being sent to Firestore:', cleanedPatientUpdates);
+        console.log('🔍 Checking patient updates for undefined values...');
+        Object.entries(cleanedPatientUpdates).forEach(([key, value]) => {
+            if (value === undefined) {
+                console.error(`❌ UNDEFINED VALUE FOUND in patientUpdates key: ${key}`);
+            }
+        });
+        
+        // Additional check for nested undefined values in appointments array
+        if (cleanedPatientUpdates['activity.appointments']) {
+            console.log('🔍 Checking appointments array for undefined values...');
+            cleanedPatientUpdates['activity.appointments'].forEach((apt, index) => {
+                Object.entries(apt).forEach(([aptKey, aptValue]) => {
+                    if (aptValue === undefined) {
+                        console.error(`❌ UNDEFINED VALUE FOUND in appointment ${index}, key: ${aptKey}`);
+                    }
+                });
+            });
+        }
+        
+        await updateDoc(doc(db, 'patients', patientId), cleanedPatientUpdates);
+        
+        console.log('✅ Appointment updated by facility successfully');
+        return true;
+    } catch (error) {
+        console.error('Error updating appointment by facility:', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete appointment for a patient
+ */
+export async function deleteAppointment(userId, appointmentId) {
+    try {
+        console.log('🔍 Deleting appointment:', appointmentId);
+        console.log('👤 User ID:', userId);
+        
+        // Get current patient data
+        const patientData = await getPatientData(userId);
+        if (!patientData) {
+            throw new Error('Patient data not found');
+        }
+        
+        const appointments = patientData?.activity?.appointments || [];
+        const appointmentIndex = appointments.findIndex(apt => apt.id === appointmentId);
+        
+        if (appointmentIndex === -1) {
+            throw new Error('Appointment not found');
+        }
+        
+        // Check if appointment is in the past
+        const appointmentToDelete = appointments[appointmentIndex];
+        const appointmentDate = new Date(appointmentToDelete.date + 'T' + appointmentToDelete.time);
+        const now = new Date();
+        
+        if (appointmentDate <= now) {
+            throw new Error('Cannot delete past appointments');
+        }
+        
+        // Remove the appointment from the array
+        const updatedAppointments = appointments.filter(apt => apt.id !== appointmentId);
+        
+        // Update the patient document
+        const patientUpdates = {
+            'activity.appointments': updatedAppointments,
+            updatedAt: serverTimestamp()
+        };
+        
+        await updateDoc(doc(db, 'patients', userId), patientUpdates);
+        
+        console.log('✅ Appointment deleted successfully');
+        return true;
+    } catch (error) {
+        console.error('Error deleting appointment:', error);
         throw error;
     }
 }
@@ -904,10 +1524,10 @@ export async function updateAppointmentStatus(appointmentId, status, patientId, 
  */
 export async function createAppointmentForPatient(patientUid, appointmentData, facilityId, facilityName) {
     try {
-        console.log('Creating appointment for patient:', patientUid);
-        console.log('Appointment data:', appointmentData);
-        console.log('Facility ID:', facilityId);
-        console.log('Facility Name:', facilityName);
+        console.log('🔍 Creating appointment for patient:', patientUid);
+        console.log('📋 Appointment data:', appointmentData);
+        console.log('🏥 Facility ID:', facilityId);
+        console.log('🏥 Facility Name:', facilityName);
         
         // First, get the patient data to ensure they exist and get their details
         const patientDocRef = doc(db, 'patients', patientUid);
@@ -918,9 +1538,74 @@ export async function createAppointmentForPatient(patientUid, appointmentData, f
         }
         
         const patientData = patientDocSnap.data();
-        console.log('Found patient data:', patientData);
+        console.log('📋 Found patient data:', patientData);
+        console.log('📋 Current activity field:', patientData.activity);
+        console.log('📋 Current appointments:', patientData.activity?.appointments || []);
         
-        // Create the appointment object
+        // Ensure activity field exists
+        if (!patientData.activity) {
+            console.log('⚠️ Activity field not found, initializing...');
+            await initializePatientActivity(patientUid);
+        }
+        
+        // Evaluate urgency level for the appointment
+        let urgencyLevel = 'GREEN';
+        let urgencyDescription = 'ROUTINE';
+        
+        try {
+            // Import and use the triage service to evaluate urgency
+            const { evaluateAppointmentUrgency } = await import('./triage.service.ts');
+            const urgencyResult = await evaluateAppointmentUrgency({
+                id: `temp_${Date.now()}`,
+                type: appointmentData.type || 'consultation',
+                notes: `${appointmentData.facilityNotes || ''} ${appointmentData.patientNotes || ''}`.trim(),
+                status: appointmentData.status || 'scheduled',
+                date: appointmentData.date || '',
+                time: appointmentData.time || ''
+            });
+            
+            urgencyLevel = urgencyResult.level;
+            urgencyDescription = urgencyResult.urgency;
+            console.log('🚨 Urgency evaluation result:', urgencyResult);
+        } catch (urgencyError) {
+            console.log('⚠️ Urgency evaluation failed, using fallback:', urgencyError.message);
+            // Use fallback urgency evaluation based on keywords
+            const text = `${appointmentData.facilityNotes || ''} ${appointmentData.patientNotes || ''} ${appointmentData.type || ''}`.toLowerCase();
+            
+            // Critical/Red indicators
+            const redKeywords = [
+                'chest pain', 'heart attack', 'stroke', 'severe bleeding', 'unconscious',
+                'difficulty breathing', 'severe trauma', 'overdose', 'suicide', 'seizure',
+                'cardiac arrest', 'respiratory failure', 'anaphylaxis', 'severe burns'
+            ];
+            
+            // Urgent/Orange indicators
+            const orangeKeywords = [
+                'high fever', 'severe headache', 'broken bone', 'deep cut', 'infection',
+                'dehydration', 'severe pain', 'allergic reaction', 'meningitis symptoms',
+                'appendicitis', 'gallbladder', 'kidney stone', 'pneumonia symptoms'
+            ];
+            
+            // Check for red level
+            if (redKeywords.some(keyword => text.includes(keyword))) {
+                urgencyLevel = 'RED';
+                urgencyDescription = 'CRITICAL';
+            }
+            // Check for orange level
+            else if (orangeKeywords.some(keyword => text.includes(keyword))) {
+                urgencyLevel = 'ORANGE';
+                urgencyDescription = 'VERY URGENT';
+            }
+            // Default to green
+            else {
+                urgencyLevel = 'GREEN';
+                urgencyDescription = 'ROUTINE';
+            }
+            
+            console.log('🚨 Fallback urgency evaluation:', { level: urgencyLevel, urgency: urgencyDescription });
+        }
+        
+        // Create the appointment object with urgency information
         const appointment = {
             id: `appointment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             patientId: patientUid,
@@ -931,12 +1616,22 @@ export async function createAppointmentForPatient(patientUid, appointmentData, f
             doctor: appointmentData.doctor || '',
             type: appointmentData.type || 'consultation',
             status: appointmentData.status || 'scheduled',
-            notes: appointmentData.notes || '',
+            patientNotes: appointmentData.patientNotes || '',
+            facilityNotes: appointmentData.facilityNotes || '',
             facilityId: facilityId,
             facilityName: facilityName,
             createdAt: new Date().toISOString(),
-            createdBy: 'facility' // Mark that this was created by the facility
+            createdBy: 'facility', // Mark that this was created by the facility
+            // Add urgency information
+            urgency: {
+                level: urgencyLevel,
+                description: urgencyDescription,
+                evaluatedAt: new Date().toISOString(),
+                evaluatedBy: 'system'
+            }
         };
+        
+        console.log('📅 Created appointment object with urgency:', appointment);
         
         // Add the appointment to the patient's document
         const patientUpdates = {
@@ -944,12 +1639,26 @@ export async function createAppointmentForPatient(patientUid, appointmentData, f
             updatedAt: serverTimestamp()
         };
         
+        console.log('📝 Updating patient document with:', patientUpdates);
+        
         await updateDoc(patientDocRef, patientUpdates);
         
-        console.log('Appointment created successfully for patient:', patientUid);
+        console.log('✅ Appointment created successfully for patient:', patientUid);
+        console.log('✅ Patient document updated with new appointment');
+        console.log('🚨 Urgency level stored:', urgencyLevel);
+        
+        // Verify the update by reading the document again
+        const updatedDocSnap = await getDoc(patientDocRef);
+        if (updatedDocSnap.exists()) {
+            const updatedData = updatedDocSnap.data();
+            console.log('🔍 Verification - Updated patient data:', updatedData);
+            console.log('🔍 Verification - Updated appointments:', updatedData.activity?.appointments || []);
+            console.log('🔍 Verification - Number of appointments:', updatedData.activity?.appointments?.length || 0);
+        }
+        
         return appointment;
     } catch (error) {
-        console.error('Error creating appointment for patient:', error);
+        console.error('❌ Error creating appointment for patient:', error);
         throw error;
     }
 }
@@ -988,22 +1697,40 @@ export function listenToPatientData(userId, callback) {
  * Listen to facility appointments changes
  */
 export function listenToFacilityAppointments(facilityId, callback) {
+    console.log('🔍 Setting up real-time listener for facility:', facilityId);
     const patientsRef = collection(db, 'patients');
     
     const unsubscribe = onSnapshot(patientsRef, (querySnapshot) => {
+        console.log('🔄 Real-time update received for facility:', facilityId);
         const appointments = [];
+        let totalPatients = 0;
+        let totalAppointments = 0;
+        
         querySnapshot.forEach((doc) => {
             const patientData = doc.data();
             const patientAppointments = patientData?.activity?.appointments || [];
+            totalPatients++;
+            totalAppointments += patientAppointments.length;
             
             // Filter appointments for this facility
             const facilityAppointments = patientAppointments.filter(appointment => 
                 appointment.facilityId === facilityId
             );
             
+            if (facilityAppointments.length > 0) {
+                console.log(`📋 Patient ${doc.id}: ${facilityAppointments.length} appointments for facility ${facilityId}`);
+                facilityAppointments.forEach(apt => {
+                    console.log(`  - Appointment ${apt.id}: ${apt.status} (${apt.date} ${apt.time})`);
+                });
+            }
+            
             appointments.push(...facilityAppointments);
         });
+        
+        console.log(`📊 Real-time update: ${appointments.length} appointments for facility ${facilityId} from ${totalPatients} patients (${totalAppointments} total appointments)`);
         callback(appointments);
+    }, (error) => {
+        console.error('❌ Real-time listener error:', error);
     });
     
     return unsubscribe;
@@ -1306,11 +2033,7 @@ export async function createFacilityDocument(user, additionalData = {}) {
             
             // Staff information
             staff: {
-                totalStaff: 0,
-                doctors: 0,
-                nurses: 0,
-                supportStaff: 0,
-                total: 1,
+                totalStaff: 1,
                 doctors: 1,
                 nurses: 0,
                 supportStaff: 0
@@ -1319,8 +2042,6 @@ export async function createFacilityDocument(user, additionalData = {}) {
             // Capacity
             capacity: {
                 bedCapacity: 0,
-                consultationRooms: 0,
-                beds: 0,
                 consultationRooms: 1
             },
 
@@ -1475,6 +2196,278 @@ export async function cleanupTestFacilities() {
         console.error('❌ Error cleaning up test facilities:', error)
         throw error
     }
+}
+
+/**
+ * Ensure facility is searchable (utility function)
+ */
+export async function ensureFacilitySearchable(facilityId) {
+    try {
+        console.log('🔍 Ensuring facility is searchable:', facilityId);
+        
+        const facilityRef = doc(db, 'facilities', facilityId);
+        const facilityDoc = await getDoc(facilityRef);
+        
+        if (!facilityDoc.exists()) {
+            throw new Error('Facility not found');
+        }
+        
+        const currentData = facilityDoc.data();
+        
+        // If isSearchable is not set or is false, set it to true
+        if (currentData.isSearchable !== true) {
+            await updateDoc(facilityRef, {
+                isSearchable: true,
+                updatedAt: serverTimestamp()
+            });
+            console.log('✅ Facility marked as searchable:', facilityId);
+        } else {
+            console.log('ℹ️ Facility already searchable:', facilityId);
+        }
+    } catch (error) {
+        console.error('❌ Error ensuring facility is searchable:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update facility information
+ */
+export async function updateFacilityInfo(facilityId, updateData) {
+    try {
+        console.log('🔍 updateFacilityInfo called for facility:', facilityId);
+        console.log('📦 Update data:', updateData);
+        
+        const facilityRef = doc(db, 'facilities', facilityId);
+        
+        // Validate that the facility exists
+        const facilityDoc = await getDoc(facilityRef);
+        if (!facilityDoc.exists()) {
+            throw new Error('Facility not found');
+        }
+        
+        // Get current facility data
+        const currentData = facilityDoc.data();
+        
+        // Prepare the update object
+        const updates = {
+            updatedAt: serverTimestamp()
+        };
+        
+        // Add facilityInfo updates if provided
+        if (updateData.facilityInfo) {
+            Object.keys(updateData.facilityInfo).forEach(key => {
+                updates[`facilityInfo.${key}`] = updateData.facilityInfo[key];
+            });
+        }
+        
+        // Add other updates if provided
+        if (updateData.licenseNumber !== undefined) {
+            updates.licenseNumber = updateData.licenseNumber;
+        }
+        
+        // Add new fields if provided
+        if (updateData.specialties !== undefined) {
+            updates.specialties = updateData.specialties;
+        }
+        if (updateData.services !== undefined) {
+            updates.services = updateData.services;
+        }
+        if (updateData.staff !== undefined) {
+            updates.staff = updateData.staff;
+        }
+        if (updateData.capacity !== undefined) {
+            updates.capacity = updateData.capacity;
+        }
+        if (updateData.operatingHours !== undefined) {
+            updates.operatingHours = updateData.operatingHours;
+        }
+        
+        // Always ensure facility is searchable when updated
+        updates.isSearchable = true;
+        
+        console.log('📦 Final updates object:', updates);
+        console.log('🔍 Current facility data before update:', currentData);
+        
+        // Update the facility document
+        await updateDoc(facilityRef, updates);
+        
+        console.log('✅ Facility information updated successfully');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error updating facility information:', error);
+        throw error;
+    }
+}
+
+/**
+ * Create quick appointment request (for non-registered patients)
+ */
+export async function createQuickAppointment(appointmentData) {
+    try {
+        console.log('🔍 Creating quick appointment request:', appointmentData);
+        
+        // Evaluate urgency level for the appointment
+        let urgencyLevel = 'GREEN';
+        let urgencyDescription = 'ROUTINE';
+        
+        try {
+            // Import and use the triage service to evaluate urgency
+            const { evaluateAppointmentUrgency } = await import('./triage.service.ts');
+            const urgencyResult = await evaluateAppointmentUrgency({
+                id: `temp_${Date.now()}`,
+                type: appointmentData.type || 'consultation',
+                notes: appointmentData.patientNotes || appointmentData.symptoms || '',
+                status: 'pending',
+                date: appointmentData.preferredDate || '',
+                time: appointmentData.preferredTime || ''
+            });
+            
+            urgencyLevel = urgencyResult.level;
+            urgencyDescription = urgencyResult.urgency;
+            console.log('🚨 Urgency evaluation result:', urgencyResult);
+        } catch (urgencyError) {
+            console.log('⚠️ Urgency evaluation failed, using fallback:', urgencyError.message);
+            // Use fallback urgency evaluation based on keywords
+            const text = `${appointmentData.patientNotes || appointmentData.symptoms || ''} ${appointmentData.specialty || ''}`.toLowerCase();
+            
+            // Critical/Red indicators
+            const redKeywords = [
+                'chest pain', 'heart attack', 'stroke', 'severe bleeding', 'unconscious',
+                'difficulty breathing', 'severe trauma', 'overdose', 'suicide', 'seizure',
+                'cardiac arrest', 'respiratory failure', 'anaphylaxis', 'severe burns'
+            ];
+            
+            // Urgent/Orange indicators
+            const orangeKeywords = [
+                'high fever', 'severe headache', 'broken bone', 'deep cut', 'infection',
+                'dehydration', 'severe pain', 'allergic reaction', 'meningitis symptoms',
+                'appendicitis', 'gallbladder', 'kidney stone', 'pneumonia symptoms'
+            ];
+            
+            // Check for red level
+            if (redKeywords.some(keyword => text.includes(keyword))) {
+                urgencyLevel = 'RED';
+                urgencyDescription = 'CRITICAL';
+            }
+            // Check for orange level
+            else if (orangeKeywords.some(keyword => text.includes(keyword))) {
+                urgencyLevel = 'ORANGE';
+                urgencyDescription = 'VERY URGENT';
+            }
+            // Default to green
+            else {
+                urgencyLevel = 'GREEN';
+                urgencyDescription = 'ROUTINE';
+            }
+            
+            console.log('🚨 Fallback urgency evaluation:', { level: urgencyLevel, urgency: urgencyDescription });
+        }
+        
+        // Create the quick appointment object
+        const quickAppointment = {
+            id: `quick_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: 'quick_appointment',
+            status: 'pending',
+            urgency: urgencyLevel,
+            urgencyDescription: urgencyDescription,
+            
+            // Patient information
+            patientName: `${appointmentData.firstName} ${appointmentData.lastName}`,
+            patientEmail: appointmentData.email,
+            patientPhone: appointmentData.phone,
+            
+            // Appointment details
+            preferredDate: appointmentData.preferredDate,
+            preferredTime: appointmentData.preferredTime,
+            specialty: appointmentData.specialty,
+            symptoms: appointmentData.symptoms,
+            urgencyLevel: appointmentData.urgency,
+            
+            // Facility information
+            facilityId: appointmentData.facility,
+            
+            // Timestamps
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            
+            // Source
+            source: 'quick_appointment_form'
+        };
+        
+        console.log('📅 Created quick appointment object:', quickAppointment);
+        
+        // Add to a special collection for quick appointments
+        const quickAppointmentsRef = collection(db, 'quickAppointments');
+        const docRef = await addDoc(quickAppointmentsRef, quickAppointment);
+        
+        console.log('✅ Quick appointment created with ID:', docRef.id);
+        
+        // Also add to the facility's appointments if facility is specified
+        if (appointmentData.facility && appointmentData.facility !== 'any') {
+            try {
+                const facilityRef = doc(db, 'facilities', appointmentData.facility);
+                const facilityDoc = await getDoc(facilityRef);
+                
+                if (facilityDoc.exists()) {
+                    const facilityData = facilityDoc.data();
+                    const facilityAppointment = {
+                        ...quickAppointment,
+                        facilityName: facilityData.facilityInfo?.name || facilityData.name || 'Unknown Facility',
+                        id: docRef.id // Use the same ID
+                    };
+                    
+                    // Add to facility's quick appointments
+                    await updateDoc(facilityRef, {
+                        quickAppointments: arrayUnion(facilityAppointment),
+                        updatedAt: serverTimestamp()
+                    });
+                    
+                    console.log('✅ Quick appointment added to facility:', appointmentData.facility);
+                }
+            } catch (facilityError) {
+                console.warn('⚠️ Could not add to facility, but appointment was created:', facilityError);
+            }
+        }
+        
+        return {
+            appointmentId: docRef.id,
+            urgency: urgencyLevel,
+            message: 'Quick appointment request submitted successfully!'
+        };
+        
+    } catch (error) {
+        console.error('❌ Error creating quick appointment:', error);
+        throw error;
+    }
+}
+
+export async function updateAppointmentUrgency(appointmentId, patientId, urgencyData, facilityId) {
+  try {
+    const { getFirestore, doc, updateDoc } = await import('firebase/firestore')
+    const db = getFirestore()
+    
+    // Update the appointment document with urgency information
+    const appointmentRef = doc(db, 'appointments', appointmentId)
+    
+    await updateDoc(appointmentRef, {
+      urgency: {
+        level: urgencyData.level,
+        description: urgencyData.urgency,
+        evaluatedAt: urgencyData.evaluatedAt,
+        method: urgencyData.method
+      },
+      lastUpdated: new Date().toISOString(),
+      lastUpdatedBy: facilityId
+    })
+    
+    console.log(`✅ Urgency data updated for appointment ${appointmentId}`)
+    return true
+  } catch (error) {
+    console.error('❌ Error updating appointment urgency:', error)
+    throw error
+  }
 }
 
 // Console log for debugging

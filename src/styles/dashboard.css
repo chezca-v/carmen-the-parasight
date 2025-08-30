@@ -1,5 +1,8 @@
 /* Patient Portal CSS - Complete Styles */
 
+/* Import standardized breakpoints */
+@import url('./breakpoints.css');
+
 :root {
     --primary-blue: #0040e7;
     --secondary-blue: #7BB3F0;
@@ -24,6 +27,48 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    color: inherit;
+}
+
+/* Ensure text visibility - prevent white text on light backgrounds */
+body, .main-container, .content-section {
+    color: var(--text-dark) !important;
+}
+
+/* Override any problematic white text */
+.info-item span,
+.detail-item span,
+.detail-value,
+.appointment-name,
+.appointment-time-slot,
+.document-title,
+.document-date,
+.document-size,
+.facility-info h3,
+.facility-type,
+.facility-location,
+.consultation-notes,
+.staff-value,
+.capacity-value,
+.operating-hours-item,
+.service-tag,
+.specialty-tag,
+.facility-description,
+.description-content,
+.description-content p {
+    color: var(--text-dark) !important;
+}
+
+/* Ensure buttons and interactive elements maintain their styling */
+.btn-primary,
+.btn-outline,
+.action-btn,
+.nav-link:hover,
+.nav-item.active .nav-link,
+.status-badge,
+.notification-badge,
+.user-avatar {
+    color: white !important;
 }
 
 body {
@@ -36,7 +81,7 @@ body {
 /* Dashboard Layout */
 .dashboard-layout {
     display: flex;
-    height: calc(100vh - 80px);
+    height: 100vh;
     overflow: hidden;
 }
 
@@ -49,6 +94,7 @@ body {
     flex-direction: column;
     z-index: 100;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-header {
@@ -167,6 +213,52 @@ body {
     justify-content: space-between;
     gap: 2rem;
     flex-wrap: wrap;
+    position: relative;
+}
+
+/* Ensure mobile menu toggle is visible in patient portal */
+.top-bar .mobile-menu-toggle {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .top-bar .mobile-menu-toggle {
+        display: flex !important;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        width: 40px;
+        height: 40px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        z-index: 1002;
+    }
+    
+    .top-bar .mobile-menu-toggle .hamburger-line {
+        width: 24px;
+        height: 2px;
+        background: var(--text-dark);
+        transition: all 0.3s ease;
+        border-radius: 2px;
+        display: block;
+    }
+    
+    .top-bar .mobile-menu-toggle.active .hamburger-line:nth-child(1) {
+        transform: rotate(45deg) translate(6px, 6px);
+    }
+    
+    .top-bar .mobile-menu-toggle.active .hamburger-line:nth-child(2) {
+        opacity: 0;
+    }
+    
+    .top-bar .mobile-menu-toggle.active .hamburger-line:nth-child(3) {
+        transform: rotate(-45deg) translate(6px, -6px);
+    }
 }
 
 .greeting h1 {
@@ -275,7 +367,7 @@ body {
 .main-container {
     padding: 2rem;
     overflow-y: auto;
-    height: calc(100vh - 120px);
+    height: 100vh;
     position: relative;
 }
 
@@ -360,15 +452,16 @@ body {
     align-items: center;
     gap: 0.75rem;
     padding: 1rem;
-    background: var(--background-light);
-    border: 1px solid var(--border-light);
+    background: var(--primary-blue);
+    border: 1px solid var(--primary-blue);
     border-radius: var(--border-radius);
     cursor: pointer;
     transition: all 0.3s ease;
+    color: white;
 }
 
 .action-btn:hover {
-    background: var(--primary-blue);
+    background: #0033cc;
     color: white;
     transform: translateY(-2px);
 }
@@ -446,11 +539,31 @@ body {
     background: var(--background-light);
     border-radius: var(--border-radius);
     border-left: 4px solid var(--primary-blue);
+    position: relative;
+}
+
+/* Triage Urgency Indicator - Clean Color Only */
+.urgency-indicator {
+    width: 1px;
+    height: 12px;
+    border-radius: 0.5px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+    margin-right: 0;
+}
+
+/* Subtle hover effect for urgency indicator */
+.urgency-indicator:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
 .appointment-date {
     text-align: center;
     min-width: 60px;
+    padding-left: 24px;
+    margin-left: 20px;
 }
 
 .appointment-date .date {
@@ -667,9 +780,12 @@ body {
     align-items: center;
     background-color: white;
     padding: 1rem 1.5rem;
+    padding-left: 3rem;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-light);
     gap: 1.5rem;
+    position: relative;
+    margin-left: 25px;
 }
 
 .date-box {
@@ -1193,6 +1309,668 @@ body {
     font-size: 1rem;
     color: var(--text-dark);
     font-weight: 500;
+}
+
+/* Profile content styling */
+.profile-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 1.5rem;
+}
+
+/* Description section styling */
+.description-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-blue);
+}
+
+.description-section h3 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.description-section p {
+    color: var(--text-dark);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Specialties and services sections */
+.specialties-section,
+.services-section {
+    margin-bottom: 2rem;
+}
+
+.specialties-section h3,
+.services-section h3 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.specialties-grid,
+.services-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.specialty-tag,
+.service-tag {
+    background: var(--primary-blue);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.specialty-tag i,
+.service-tag i {
+    font-size: 0.8rem;
+}
+
+/* Staff section styling */
+.staff-section {
+    margin-bottom: 2rem;
+}
+
+.staff-section h3 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.staff-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+}
+
+.staff-label {
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.staff-value {
+    font-weight: 700;
+    font-size: 1rem;
+    background: var(--primary-blue);
+    color: white !important;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    min-width: 40px;
+    text-align: center;
+    display: inline-block;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.staff-value:hover {
+    background: #0033b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Capacity section styling */
+.capacity-section {
+    margin-bottom: 2rem;
+}
+
+.capacity-section h3 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.capacity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.capacity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+}
+
+.capacity-label {
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.capacity-value {
+    font-weight: 700;
+    font-size: 1rem;
+    background: var(--primary-blue);
+    color: white !important;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    min-width: 40px;
+    text-align: center;
+    display: inline-block;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.capacity-value:hover {
+    background: #0033b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Settings section styling */
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+.settings-section h3 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+}
+
+.setting-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.setting-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-blue);
+}
+
+.setting-description {
+    color: var(--text-light);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    margin-left: 2.25rem;
+}
+
+/* Document viewer modal styles */
+.document-details {
+    padding: 1rem 0;
+}
+
+.document-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+}
+
+.document-info-grid .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.document-info-grid .info-item label {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.document-info-grid .info-item span {
+    color: var(--text-dark);
+    font-size: 0.9rem;
+}
+
+/* PDF viewer styles */
+.pdf-viewer {
+    text-align: center;
+    padding: 2rem;
+}
+
+.pdf-preview {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.pdf-icon {
+    width: 80px;
+    height: 80px;
+    background: #dc3545;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    color: white;
+    font-weight: bold;
+}
+
+.pdf-icon i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.pdf-icon span {
+    font-size: 0.8rem;
+}
+
+.pdf-preview h4 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.pdf-preview p {
+    color: var(--text-light);
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.pdf-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Image viewer styles */
+.image-viewer {
+    text-align: center;
+    padding: 1rem;
+}
+
+.image-viewer img {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Text viewer styles */
+.text-viewer {
+    text-align: center;
+    padding: 2rem;
+}
+
+.unsupported-format {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.unsupported-format i {
+    font-size: 3rem;
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+.unsupported-format h4 {
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.unsupported-format p {
+    color: var(--text-light);
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+/* Document actions in grid */
+.document-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.document-actions .btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+}
+
+@media (max-width: 768px) {
+    .document-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .pdf-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .document-actions {
+        flex-direction: column;
+    }
+    
+    /* Mobile Layout Improvements */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stat-card {
+        padding: 1.25rem;
+        gap: 0.75rem;
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+    
+    .stat-info h3 {
+        font-size: 1.75rem;
+    }
+    
+    .quick-actions {
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .action-buttons {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .action-btn {
+        padding: 0.875rem;
+        justify-content: center;
+    }
+    
+    .dashboard-section {
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .content-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    .tab-link {
+        padding: 0.625rem 1rem;
+        font-size: 0.9rem;
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+        white-space: nowrap;
+    }
+    
+    .record-item-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        padding-left: 1rem;
+        margin-left: 0;
+        gap: 1rem;
+    }
+    
+    .date-box {
+        align-self: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .record-divider-v {
+        display: none;
+    }
+    
+    .record-details-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .detail-item-flex {
+        justify-content: flex-start;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-light);
+    }
+    
+    .detail-item-flex:last-child {
+        border-bottom: none;
+    }
+    
+    .record-actions-dropdown {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: stretch;
+    }
+    
+    .record-actions-dropdown .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .record-actions-dropdown select {
+        width: 100%;
+        padding: 0.75rem;
+    }
+    
+    .section-header-flex {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .section-controls {
+        align-self: stretch;
+    }
+    
+    .section-controls .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .hours-grid {
+        gap: 1rem;
+    }
+    
+    .hours-item .time-inputs {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+    
+    .hours-item .time-inputs input[type="time"] {
+        width: 100%;
+    }
+    
+    .hours-item .checkbox-label {
+        justify-content: center;
+        margin-top: 0.5rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 2.5% auto;
+        max-height: 95vh;
+    }
+    
+    .modal-header {
+        padding: 1rem 1.25rem;
+    }
+    
+    .modal-body {
+        padding: 1.25rem;
+    }
+    
+    .modal-footer {
+        padding: 1rem 1.25rem;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .modal-tabs {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0 1rem;
+    }
+    
+    .modal-tab {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+    }
+    
+    .appointment-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 1rem;
+    }
+    
+    .appointment-date {
+        align-self: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .appointment-info {
+        text-align: center;
+    }
+    
+    .appointment-actions {
+        align-self: center;
+    }
+    
+    .urgency-indicator {
+        position: static;
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        margin-bottom: 0.75rem;
+    }
+    
+    .quick-appointments-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .quick-appointment-card {
+        padding: 1.25rem;
+    }
+    
+    .quick-appointment-card .cta-features {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .help-categories .category-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .help-category {
+        padding: 1.25rem;
+    }
+    
+    .faq-list {
+        gap: 1rem;
+    }
+    
+    .faq-item {
+        padding: 1rem;
+    }
+    
+    .profile-container {
+        padding: 1rem;
+    }
+    
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .profile-avatar {
+        align-self: center;
+    }
+    
+    .specialties-grid,
+    .services-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .staff-grid,
+    .capacity-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
 }
 
 /* Diseases Section */
@@ -1878,32 +2656,63 @@ input:checked + .slider:before {
 
 @media (max-width: 768px) {
     .dashboard-layout {
-        height: calc(100vh - 60px);
+        height: 100vh;
     }
     
     .sidebar {
         position: fixed;
-        left: -100%;
+        left: 0;
         width: 280px;
         height: 100vh;
         top: 0;
         background: white;
         z-index: 1000;
-        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+        transform: translateX(-100%);
     }
     
-    .sidebar.open {
+    .sidebar.active {
+        transform: translateX(0);
         left: 0;
+    }
+    
+    /* Ensure sidebar is above all other content */
+    .sidebar {
+        z-index: 1001 !important;
+    }
+    
+    /* Sidebar Overlay for Mobile */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(4px);
+    }
+    
+    .sidebar-overlay.active {
+        display: block;
+        opacity: 1;
+        visibility: visible;
     }
     
     .main-content {
         width: 100%;
         margin-left: 0;
+        position: relative;
+        z-index: 1;
     }
     
     .mobile-menu-toggle {
-        display: block;
+        display: flex !important;
     }
     
     .top-bar {
@@ -2031,6 +2840,7 @@ input:checked + .slider:before {
     }
     
     .mobile-menu-toggle {
+        display: flex !important;
         padding: 0.5rem;
         font-size: 1.25rem;
     }
@@ -2045,28 +2855,242 @@ input:checked + .slider:before {
     
     .stats-grid {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
     }
     
     .stat-card {
         padding: 1rem;
+        gap: 0.5rem;
     }
     
     .stat-icon {
-        width: 50px;
-        height: 50px;
+        width: 45px;
+        height: 45px;
+        font-size: 1.125rem;
+    }
+    
+    .stat-info h3 {
+        font-size: 1.5rem;
+    }
+    
+    .stat-info p {
+        font-size: 0.8rem;
+    }
+    
+    .quick-actions {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .quick-actions h3 {
+        font-size: 1.125rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .action-btn {
+        padding: 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .dashboard-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .dashboard-section h3 {
+        font-size: 1.125rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .content-tabs {
+        gap: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .tab-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .record-item-card {
+        padding: 0.875rem;
+        gap: 0.75rem;
+    }
+    
+    .date-box {
+        padding: 0.5rem;
+        min-width: 50px;
+    }
+    
+    .date-box .day {
+        font-size: 0.8rem;
+    }
+    
+    .date-box .date-num {
         font-size: 1.25rem;
     }
     
-    .modal-content {
-        width: 95%;
-        margin: 5% auto;
+    .record-details-grid {
+        gap: 0.5rem;
     }
     
-    .modal-header,
-    .modal-body,
-    .modal-footer {
+    .detail-item-flex {
+        padding: 0.375rem 0;
+        font-size: 0.875rem;
+    }
+    
+    .record-actions-dropdown {
+        gap: 0.375rem;
+    }
+    
+    .record-actions-dropdown .btn {
+        padding: 0.625rem;
+        font-size: 0.8rem;
+    }
+    
+    .record-actions-dropdown select {
+        padding: 0.625rem;
+        font-size: 0.8rem;
+    }
+    
+    .section-header-flex {
+        gap: 0.75rem;
+    }
+    
+    .section-main-title {
+        font-size: 1.5rem;
+    }
+    
+    .facility-info {
+        font-size: 0.875rem;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .form-row {
+        gap: 0.75rem;
+    }
+    
+    .hours-grid {
+        gap: 0.75rem;
+    }
+    
+    .hours-item .time-inputs {
+        gap: 0.5rem;
+    }
+    
+    .modal-content {
+        width: 98%;
+        margin: 1% auto;
+    }
+    
+    .modal-header {
+        padding: 0.875rem 1rem;
+    }
+    
+    .modal-header h3 {
+        font-size: 1.125rem;
+    }
+    
+    .modal-body {
         padding: 1rem;
+    }
+    
+    .modal-footer {
+        padding: 0.875rem 1rem;
+        gap: 0.5rem;
+    }
+    
+    .modal-tabs {
+        gap: 0.125rem;
+        padding: 0 0.75rem;
+    }
+    
+    .modal-tab {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .appointment-card {
+        padding: 0.875rem;
+        gap: 0.75rem;
+    }
+    
+    .urgency-indicator {
+        height: 6px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quick-appointments-grid {
+        gap: 0.75rem;
+    }
+    
+    .quick-appointment-card {
+        padding: 1rem;
+    }
+    
+    .help-categories .category-grid {
+        gap: 0.75rem;
+    }
+    
+    .help-category {
+        padding: 1rem;
+    }
+    
+    .faq-list {
+        gap: 0.75rem;
+    }
+    
+    .faq-item {
+        padding: 0.875rem;
+    }
+    
+    .profile-container {
+        padding: 0.875rem;
+    }
+    
+    .profile-header {
+        gap: 0.75rem;
+    }
+    
+    .specialties-grid,
+    .services-grid {
+        gap: 0.5rem;
+    }
+    
+    .staff-grid,
+    .capacity-grid {
+        gap: 0.75rem;
+    }
+    
+    .empty-state {
+        padding: 2rem 1rem;
+        margin: 1rem 0;
+    }
+    
+    .empty-state-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .empty-state h3 {
+        font-size: 1.125rem;
+        margin-bottom: 0.375rem;
+    }
+    
+    .empty-state p {
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        max-width: 250px;
+    }
+    
+    .empty-state .btn {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
     }
     
     .form-group input,
@@ -2097,11 +3121,6 @@ input:checked + .slider:before {
         width: 70px;
         height: 70px;
         font-size: 1.25rem;
-    }
-    
-    .info-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
     }
 }
 
@@ -2281,7 +3300,7 @@ input:checked + .slider:before {
   color: #374151;
 }
 
-/* Responsive Styles */
+/* Responsive Styles - Small Mobile */
 @media (max-width: 640px) {
   .modal-content {
     width: 95%;
@@ -2290,6 +3309,109 @@ input:checked + .slider:before {
   
   .video-preview {
     height: 150px;
+  }
+  
+  /* Medium Mobile Improvements */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .stat-card {
+    padding: 1.25rem;
+    gap: 0.75rem;
+  }
+  
+  .stat-icon {
+    width: 55px;
+    height: 55px;
+    font-size: 1.375rem;
+  }
+  
+  .stat-info h3 {
+    font-size: 1.625rem;
+  }
+  
+  .quick-actions {
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .action-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .action-btn {
+    padding: 0.875rem;
+    font-size: 0.9rem;
+  }
+  
+  .dashboard-section {
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .content-tabs {
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .tab-link {
+    padding: 0.625rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .record-item-card {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .record-details-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .section-header-flex {
+    gap: 1rem;
+  }
+  
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .form-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .modal-content {
+    width: 90%;
+    margin: 5% auto;
+  }
+  
+  .quick-appointments-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .help-categories .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .specialties-grid,
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .staff-grid,
+  .capacity-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
   }
 } 
 
@@ -2766,8 +3888,9 @@ input:checked + .slider:before {
 
 .consultation-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
     margin-bottom: 1rem;
 }
 
@@ -2920,7 +4043,7 @@ input:checked + .slider:before {
 
 /* Consultation History Styles */
 .consultation-history {
-  max-height: 400px;
+  max-height: 1000px;
   overflow-y: auto;
 }
 
@@ -2934,8 +4057,9 @@ input:checked + .slider:before {
 
 .consultation-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 
@@ -3253,4 +4377,590 @@ input:checked + .slider:before {
   .form-group {
     margin-bottom: 1rem;
   }
+}
+
+/* New form sections for facility profile editing */
+.form-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.form-section h4 {
+  margin-bottom: 1rem;
+  color: var(--text-dark);
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-section h4 i {
+  color: var(--primary-blue);
+}
+
+.hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hours-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hours-item label {
+  font-weight: 600;
+  color: var(--text-medium);
+  margin-bottom: 0.25rem;
+}
+
+.time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.time-inputs input[type="time"] {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  min-width: 120px;
+}
+
+.time-inputs span {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-medium);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Responsive adjustments for new form sections */
+@media (max-width: 768px) {
+  .form-section {
+    padding: 1rem;
+  }
+  
+  .time-inputs {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .time-inputs input[type="time"] {
+    min-width: 100%;
+  }
+}
+
+/* Triage Urgency Indicator */
+.urgency-indicator {
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 85px;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    border: 4px solid white;
+    min-width: 40px;
+}
+
+.urgency-indicator .urgency-level {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    margin-bottom: 2px;
+}
+
+.urgency-indicator .urgency-text {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    line-height: 1.1;
+}
+
+/* Responsive adjustments for urgency indicator */
+@media (max-width: 768px) {
+    .urgency-indicator {
+        width: 35px;
+        height: 90px;
+        left: 3px;
+        font-size: 0.8rem;
+    }
+    
+    .urgency-indicator .urgency-level {
+        font-size: 0.6rem;
+    }
+    
+    .urgency-indicator .urgency-text {
+        font-size: 0.5rem;
+    }
+}
+
+/* Hover effects for urgency indicator */
+.urgency-indicator:hover {
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+}
+
+/* Animation for new evaluations */
+.urgency-indicator.new-evaluation {
+    animation: new-evaluation 0.6s ease-in-out;
+}
+
+@keyframes new-evaluation {
+    0% { transform: translateY(-50%) scale(1); }
+    50% { transform: translateY(-50%) scale(1.1); }
+    100% { transform: translateY(-50%) scale(1); }
+}
+
+.urgency-indicator.evaluating {
+    opacity: 0.7;
+    animation: evaluating 1.5s ease-in-out infinite;
+}
+
+@keyframes evaluating {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+/* Booking Information Styles */
+.booking-info {
+  margin-top: 4px;
+  padding: 4px 8px;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  border-left: 3px solid #2196f3;
+}
+
+.booking-info small {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.booking-info i {
+  margin-right: 4px;
+  color: #2196f3;
+}
+
+/* Enhanced appointment card styles */
+.appointment-card .appointment-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.appointment-card .appointment-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.appointment-card .appointment-info p {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  color: #7f8c8d;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/* Fix for long notes in appointment cards */
+.appointment-card .appointment-info .long-notes {
+  white-space: normal;
+  line-height: 1.4;
+  max-height: 4.2em; /* 3 lines of text */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+}
+
+/* Fix for long notes in appointments list */
+.record-item-card .detail-item-flex .long-notes {
+  white-space: normal;
+  line-height: 1.4;
+  max-height: 4.2em; /* 3 lines of text */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/* Ensure the notes container doesn't overflow */
+.record-item-card .detail-item-flex {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.record-item-card .detail-item-flex span {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.appointment-card .appointment-time {
+  font-size: 12px;
+  color: #34495e;
+  font-weight: 500;
+}
+
+/* Detail item flex styles for appointments list */
+.detail-item-flex {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #495057;
+}
+
+/* Mobile-Specific Touch Improvements */
+@media (max-width: 768px) {
+  /* Improve touch targets */
+  .btn, .tab-link, .nav-link {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Ensure consistent mobile layout */
+  .dashboard-layout {
+    flex-direction: column;
+  }
+  
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Better mobile container spacing */
+  .main-container {
+    padding: 1rem;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Consistent mobile section spacing */
+  .content-section {
+    padding: 0;
+    margin: 0;
+  }
+  
+  .section-header,
+  .section-header-flex {
+    padding: 0 0 1rem 0;
+    margin-bottom: 1rem;
+  }
+  
+  .section-header h1,
+  .section-main-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .section-header p,
+  .facility-info {
+    font-size: 0.875rem;
+    margin-bottom: 0;
+  }
+  
+  /* Better spacing for mobile */
+  .main-container {
+    padding: 1rem;
+  }
+  
+  /* Improve mobile scrolling */
+  .records-list {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Better mobile form inputs */
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 0.875rem;
+    border-radius: 8px;
+  }
+  
+  /* Mobile-friendly buttons */
+  .record-actions-dropdown .btn {
+    min-height: 44px;
+    border-radius: 8px;
+  }
+  
+  /* Improve mobile card spacing */
+  .record-item-card {
+    margin-bottom: 0.75rem;
+    border-radius: 12px;
+  }
+  
+  /* Better mobile modal handling */
+  .modal {
+    padding: 1rem;
+  }
+  
+  .modal-content {
+    border-radius: 12px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  /* Mobile-friendly tabs */
+  .content-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .content-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Improve mobile sidebar */
+  .sidebar {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Better mobile stats display */
+  .stats-grid {
+    margin: 0 -0.5rem 1.5rem -0.5rem;
+  }
+  
+  .stat-card {
+    margin: 0 0.5rem;
+    border-radius: 12px;
+  }
+  
+  /* Mobile-friendly quick actions */
+  .quick-actions {
+    border-radius: 12px;
+    margin: 0 -0.5rem 1.5rem -0.5rem;
+  }
+  
+  /* Improve mobile appointment cards */
+  .appointment-card {
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+  }
+  
+  /* Better mobile urgency indicators */
+  .urgency-indicator {
+    border-radius: 6px;
+  }
+  
+  /* Mobile-friendly help categories */
+  .help-categories .category-grid {
+    margin: 0 -0.5rem;
+  }
+  
+  .help-category {
+    margin: 0 0.5rem;
+    border-radius: 12px;
+  }
+  
+  /* Improve mobile FAQ */
+  .faq-item {
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+  }
+  
+  /* Better mobile profile layout */
+  .profile-container {
+    border-radius: 12px;
+  }
+  
+  .profile-header {
+    border-radius: 12px 12px 0 0;
+  }
+  
+  /* Mobile-friendly specialties and services */
+  .specialties-grid,
+  .services-grid {
+    margin: 0 -0.5rem;
+  }
+  
+  .specialty-tag,
+  .service-tag {
+    margin: 0 0.5rem 0.5rem 0.5rem;
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+  }
+  
+  /* Improve mobile staff and capacity grids */
+  .staff-grid,
+  .capacity-grid {
+    margin: 0 -0.5rem;
+  }
+  
+  .staff-item,
+  .capacity-item {
+    margin: 0 0.5rem;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  
+  /* Better mobile empty states */
+  .empty-state {
+    border-radius: 12px;
+    margin: 1rem -0.5rem;
+  }
+  
+  /* Mobile-friendly operating hours */
+  .hours-grid {
+    margin: 0 -0.5rem;
+  }
+  
+  .hours-item {
+    margin: 0 0.5rem;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  
+  /* Improve mobile time inputs */
+  .time-inputs input[type="time"] {
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    padding: 0.75rem;
+  }
+  
+  /* Better mobile checkbox labels */
+  .checkbox-label {
+    border-radius: 8px;
+    padding: 0.75rem;
+    background-color: var(--background-light);
+  }
+  
+  /* Mobile-friendly form sections */
+  .form-section {
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+  }
+  
+  .form-section h4 {
+    border-radius: 8px 8px 0 0;
+    margin: -1.25rem -1.25rem 1rem -1.25rem;
+    padding: 1rem 1.25rem;
+    background-color: var(--background-light);
+  }
+  
+  /* Consistent mobile shadows and borders */
+  .stat-card,
+  .quick-actions,
+  .dashboard-section,
+  .record-item-card,
+  .appointment-card,
+  .help-category,
+  .faq-item,
+  .profile-container,
+  .form-section,
+  .modal-content {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-light);
+  }
+  
+  /* Better mobile spacing consistency */
+  .stats-grid,
+  .quick-actions,
+  .dashboard-section,
+  .content-tabs,
+  .records-list,
+  .help-categories,
+  .faq-list,
+  .profile-content {
+    margin-bottom: 1.5rem;
+  }
+  
+  /* Mobile-friendly urgency indicators */
+  .urgency-indicator {
+    position: static;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Consistent mobile button styling */
+  .btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Mobile-friendly input styling */
+  input, textarea, select {
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    transition: border-color 0.2s ease;
+  }
+  
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(0, 64, 231, 0.1);
+  }
+  
+  /* Consistent mobile card styling */
+  .card, .stat-card, .quick-actions, .dashboard-section {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+}
+
+.detail-item-flex i {
+  width: 16px;
+  color: #6c757d;
+  text-align: center;
+}
+
+.detail-item-flex span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
