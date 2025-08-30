@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 class GeminiService {
   private genAI: GoogleGenerativeAI | null = null;
-  private model: any = null;
+  private model: ReturnType<GoogleGenerativeAI['getGenerativeModel']> | null = null;
 
   constructor() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;

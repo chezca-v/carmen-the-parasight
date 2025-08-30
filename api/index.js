@@ -4,6 +4,15 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, param, query, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
+
+// Import secure JWT helper
+let jwtHelper;
+try {
+  jwtHelper = require('../src/utils/jwt-helper.js').default;
+} catch (err) {
+  console.warn('JWT helper not available, using basic JWT operations');
+  jwtHelper = null;
+}
 const morgan = require('morgan');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
@@ -54,9 +63,9 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "https://apis.google.com", "https://www.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://lingaplink-ph.firebaseapp.com", "https://api.gemini.google.com"],
+      connectSrc: ["'self'", "https://lingaplink-ph.firebaseapp.com", "https://api.gemini.google.com", "https://apis.google.com", "https://www.googleapis.com", "https://accounts.google.com"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
@@ -520,9 +529,31 @@ const authenticateUser = async (req, res, next) => {
       const decodedToken = await adminAuth.verifyIdToken(token);
       req.user = decodedToken;
     } else {
-      // Fallback JWT verification (for development)
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-      req.user = decoded;
+      // Secure JWT verification using JWT helper
+      if (jwtHelper) {
+        try {
+          const decoded = jwtHelper.verifyToken(token);
+          req.user = decoded;
+        } catch (jwtError) {
+          console.error('JWT verification failed:', jwtError.message);
+          return res.status(401).json({ 
+            error: 'Unauthorized', 
+            message: 'Invalid or expired token' 
+          });
+        }
+      } else {
+        // Fallback to basic JWT verification with validation
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret || jwtSecret === 'fallback-secret' || jwtSecret.length < 32) {
+          console.error('❌ Invalid JWT secret configuration');
+          return res.status(500).json({ 
+            error: 'Server configuration error', 
+            message: 'Authentication service unavailable' 
+          });
+        }
+        const decoded = jwt.verify(token, jwtSecret);
+        req.user = decoded;
+      }
     }
     
     next();
@@ -547,8 +578,31 @@ const optionalAuth = async (req, res, next) => {
         const decodedToken = await adminAuth.verifyIdToken(token);
         req.user = decodedToken;
       } else {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-        req.user = decoded;
+        // Secure JWT verification using JWT helper
+        if (jwtHelper) {
+          try {
+            const decoded = jwtHelper.verifyToken(token);
+            req.user = decoded;
+          } catch (jwtError) {
+            console.error('JWT verification failed:', jwtError.message);
+            // Continue without authentication for optional auth
+            return next();
+          }
+        } else {
+          // Fallback to basic JWT verification with validation
+          const jwtSecret = process.env.JWT_SECRET;
+          if (!jwtSecret || jwtSecret === 'fallback-secret' || jwtSecret.length < 32) {
+            console.error('❌ Invalid JWT secret configuration');
+            return next();
+          }
+          try {
+            const decoded = jwt.verify(token, jwtSecret);
+            req.user = decoded;
+          } catch (jwtError) {
+            console.error('JWT verification failed:', jwtError.message);
+            return next();
+          }
+        }
       }
     }
     

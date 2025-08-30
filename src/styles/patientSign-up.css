@@ -583,3 +583,414 @@ body {
         font-size: 28px;
     }
 }
+
+/* Field error styling */
+.field-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  animation: fadeIn 0.2s ease-in;
+  font-weight: 500;
+  padding: 0.5rem;
+  background-color: rgba(220, 38, 38, 0.05);
+  border-radius: 0.375rem;
+  border-left: 3px solid #dc2626;
+}
+
+.field-error::before {
+  content: "⚠";
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Enhanced error and success messages */
+.error-message,
+.success-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-top: 1rem;
+  animation: slideInUp 0.3s ease-out;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.error-message {
+  background-color: rgba(254, 242, 242, 0.95);
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-left: 4px solid #dc2626;
+}
+
+.success-message {
+  background-color: rgba(240, 253, 244, 0.95);
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  border-left: 4px solid #16a34a;
+}
+
+/* Enhanced form validation */
+.form-group input:invalid,
+.form-group input[aria-invalid="true"] {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px #dc2626;
+  background-color: rgba(254, 242, 242, 0.1);
+}
+
+.form-group input:invalid:focus,
+.form-group input[aria-invalid="true"]:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+  background-color: rgba(254, 242, 242, 0.05);
+}
+
+/* Enhanced button states */
+.signup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #9ca3af;
+  transform: none;
+  box-shadow: none;
+}
+
+.signup-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background-color: #9ca3af;
+}
+
+.signup-btn:not(:disabled):hover {
+  background: #3d7a8a;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(74, 144, 164, 0.3);
+}
+
+.signup-btn:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: 0 4px 15px rgba(74, 144, 164, 0.2);
+}
+
+/* Enhanced social buttons */
+.social-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.social-btn:disabled:hover {
+  transform: none;
+  background-color: inherit;
+  border-color: var(--border-color);
+}
+
+.social-btn:not(:disabled):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary-color);
+}
+
+.social-btn:not(:disabled):active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Focus indicators for accessibility */
+.signup-btn:focus-visible,
+.social-btn:focus-visible,
+.close-link:focus-visible,
+.forgot-link:focus-visible,
+.password-toggle:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Enhanced loading states */
+.loading-spinner {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #ffffff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.signup-btn:disabled .loading-spinner {
+  animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
+}
+
+/* Form Progress Indicator */
+.form-progress {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+.progress-text {
+  position: absolute;
+  top: -25px;
+  right: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Enhanced form group spacing */
+.form-group {
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+/* Enhanced input focus states */
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 144, 164, 0.15);
+  outline: none;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus:not([aria-invalid="true"]),
+.form-group select:focus:not([aria-invalid="true"]) {
+  background-color: rgba(74, 144, 164, 0.02);
+}
+
+/* Enhanced password toggle button */
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover {
+  color: var(--primary-color);
+  background-color: rgba(74, 144, 164, 0.1);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  color: var(--primary-color);
+  background-color: rgba(74, 144, 164, 0.15);
+}
+
+.password-toggle:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* Enhanced checkbox styling */
+.remember-me input[type="checkbox"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.remember-me input[type="checkbox"]:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.remember-me label {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  color: var(--text-color);
+  transition: color 0.2s ease;
+}
+
+.remember-me label:hover {
+  color: var(--primary-color);
+}
+
+/* Enhanced divider */
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+}
+
+.divider span {
+  background-color: #ffffff;
+  padding: 0 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+}
+
+/* Enhanced social buttons container */
+.social-buttons {
+  display: flex;
+  gap: 1.25rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+  .social-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .social-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .field-error {
+    font-size: 0.8rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .error-message {
+    border-width: 2px;
+  }
+  
+  .success-message {
+    border-width: 2px;
+  }
+  
+  .signup-btn:focus-visible,
+  .social-btn:focus-visible,
+  .close-link:focus-visible,
+  .forgot-link:focus-visible,
+  .password-toggle:focus-visible {
+    outline-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .field-error,
+  .error-message,
+  .success-message,
+  .loading-spinner {
+    animation: none;
+  }
+  
+  .signup-btn:hover,
+  .social-btn:hover,
+  .password-toggle:hover {
+    transform: none;
+  }
+}

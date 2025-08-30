@@ -31,7 +31,7 @@ class LlamaService {
         content: msg.parts.join(' '),
       }));
 
-      const response = await this.ollama.chat({
+      await this.ollama.chat({
         model: 'llama3',
         messages: messages,
       });

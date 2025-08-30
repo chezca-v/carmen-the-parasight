@@ -30,13 +30,13 @@ const getEnvVar = (key, fallback) => {
 // TEMPORARY CONFIGURATION FOR LIVE SERVER TESTING
 // Uncomment this block and add your Firebase credentials for immediate testing
 const tempFirebaseConfig = {
-    apiKey: "AIzaSyCunefCUU8HgI2HcDuRdhn8RGRyYHXaQ9E",  // ← PUT YOUR REAL API KEY HERE
-    authDomain: "lingaplink.firebaseapp.com", 
-    projectId: "lingaplink",
-    storageBucket: "lingaplink.firebasestorage.app",
-    messagingSenderId: "837397114133",
-    appId: "1:837397114133:web:41acfeaefb58f667cc0d1c",
-    measurementId: "G-C9NM22QMFW"
+    apiKey: "AIzaSyADZIfbk0DqSxWwhNbFtU8bf-pX6qdVM6s",  // ← PUT YOUR REAL API KEY HERE
+    authDomain: "carmen-para-sight-v2.firebaseapp.com", 
+    projectId: "carmen-para-sight-v2",
+    storageBucket: "carmen-para-sight-v2.firebasestorage.app",
+    messagingSenderId: "99887505888",
+    appId: "1:99887505888:web:99bbf44ebf52d8edfccb85",
+    measurementId: "G-GSV3W1CH0V"
 };
 
 const firebaseConfig = {

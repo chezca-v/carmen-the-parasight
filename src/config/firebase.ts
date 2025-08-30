@@ -1,19 +1,22 @@
-// Firebase configuration for LingapLink Healthcare System
+// Firebase configuration for Carmen Para Sight
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// Firebase config - using environment variables for security
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "your-api-key-here",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "your-project.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "your-project-id",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "your-project.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-XXXXXXXXXX"
+  apiKey: "AIzaSyADZIfbk0DqSxWwhNbFtU8bf-pX6qdVM6s",
+  authDomain: "carmen-para-sight-v2.firebaseapp.com",
+  projectId: "carmen-para-sight-v2",
+  storageBucket: "carmen-para-sight-v2.firebasestorage.app",
+  messagingSenderId: "99887505888",
+  appId: "1:99887505888:web:99bbf44ebf52d8edfccb85",
+  measurementId: "G-GSV3W1CH0V"
 };
+
+console.log(`✅ Firebase configuration loaded for carmen-para-sight-v2`);
+console.log(`📁 Project: ${firebaseConfig.projectId}`);
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

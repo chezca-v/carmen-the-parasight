@@ -214,8 +214,8 @@ function validateName(name, fieldName = 'Name') {
         return { valid: false, error: `${fieldName} must be less than 50 characters` };
     }
     
-    // Allow letters, spaces, hyphens, apostrophes (international names)
-    const nameRegex = /^[a-zA-ZÀ-ÿ\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF\s'-]+$/;
+    // Allow letters, spaces, hyphens, apostrophes, and periods (for middle initials)
+    const nameRegex = /^[a-zA-ZÀ-ÿ\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF\s'.-]+$/;
     
     if (!nameRegex.test(sanitized)) {
         return { valid: false, error: `${fieldName} contains invalid characters` };
@@ -402,8 +402,9 @@ function validateDocumentName(name) {
         return { valid: false, error: 'Document name must be less than 100 characters' };
     }
     
-    // Allow letters, numbers, spaces, hyphens, dots, underscores
-    const nameRegex = /^[a-zA-Z0-9\s\-\._]+$/;
+    // Allow most printable characters except for potentially dangerous ones
+    // This allows for international characters, common punctuation, etc.
+    const nameRegex = /^[^\x00-\x1f\x7f]+$/;
     
     if (!nameRegex.test(sanitized)) {
         return { valid: false, error: 'Document name contains invalid characters' };
